@@ -35,8 +35,8 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
-          # 二选一：使用 API Key（仓库 Secret 名为 ANTHROPIC_API_KEY）
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # 或者使用订阅账号的 OAuth Token（用 `claude setup-token` 生成），
-          # 改用下面这行并删除上面的 anthropic_api_key：
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 使用订阅账号的 OAuth Token（用 `claude setup-token` 生成，
+          # 存为仓库 Secret：CLAUDE_CODE_OAUTH_TOKEN）
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 如果改用 API Key，换成下面这行（Secret 名为 ANTHROPIC_API_KEY）：
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

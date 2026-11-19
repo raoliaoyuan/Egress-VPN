@@ -1,0 +1,47 @@
+#!/usr/sbin/nft -f
+#
+# VPN 网关：虚拟机真实 IP 到内网 IP 的映射，以及回程包的标记。
+#
+# 加载：nft -f vpngw.nft
+# 注意：重新加载本文件不会清空已有的表；要重置请先执行 nft delete table ip vpngw。
+#
+# 映射表 vm2intra 由控制面维护：
+#   登记一台虚拟机：nft add element ip vpngw vm2intra '{ 10.1.2.4 : 100.64.0.8 }'
+#   注销一台虚拟机：nft delete element ip vpngw vm2intra '{ 10.1.2.4 : 100.64.0.8 }'
+#   注销后已建立的连接不会立刻中断，需要立刻切断时再执行：conntrack -D -s 10.1.2.4
+#
+# 标记值 123 要与 envoy.yaml、wg0.conf 保持一致。
+
+table ip vpngw {
+	# 虚拟机真实 IP : 该虚拟机的内网 IP
+	map vm2intra {
+		type ipv4_addr : ipv4_addr
+		elements = { 10.1.2.3 : 100.64.0.7 }
+	}
+
+	# Envoy 以虚拟机地址发起的连接带有标记 123，把标记记到连接上。
+	chain out_mark {
+		type filter hook output priority mangle; policy accept;
+		meta mark 123 ct mark set 123
+	}
+
+	# 这些连接的回程包从隧道进来时，把标记打回到包上，
+	# 配合 wg0.conf 里的策略路由把包交给本机的 Envoy。
+	chain in_mark {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname "wg0" ct mark 123 meta mark set 123
+	}
+
+	# 进隧道前，把源地址从虚拟机真实 IP 换成它的内网 IP。
+	chain snat_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "wg0" snat to ip saddr map @vm2intra
+	}
+
+	# 源地址转换之后再检查一次：不在本单元地址块里的包不许进隧道。
+	# 映射表里没有登记的虚拟机会在这里被丢弃。
+	chain guard_out {
+		type filter hook postrouting priority 110; policy accept;
+		oifname "wg0" ip saddr != 100.64.0.0/22 drop
+	}
+}

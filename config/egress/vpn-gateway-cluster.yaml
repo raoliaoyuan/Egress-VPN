@@ -1,0 +1,39 @@
+# Egress：需要合并进现有 Envoy 配置的片段（不是完整配置）
+#
+# 作用：把去往内网的流量交给 VPN 网关，并在连接开头发送 PROXY 头。
+#       PROXY 头的源地址是虚拟机真实 IP，目的地址是虚拟机原本要访问的内网服务。
+#
+# 前提：Egress 是透明劫持，监听器上用 original_dst 还原了目的地址。
+#       如果 Egress 是显式代理或按域名选上游，PROXY 头里的目的地址不是内网服务，
+#       这份配置不适用，见 README 的"前提与待确认"。
+#
+# 还需要在现有配置里做的事（取决于 Egress 当前的监听器结构，这里无法给出）：
+#   - 把目的地址属于内网网段（示例 10.200.0.0/16）的流量路由到这个 cluster。
+#   - 有多个网关单元时，按虚拟机所属单元选择对应的 cluster。
+#     建议让虚拟机子网与单元对齐，这样按源地址前缀就能选，不用逐台配置。
+
+clusters:
+- name: vpn_gateway_1
+  type: STRICT_DNS
+  connect_timeout: 5s
+  load_assignment:
+    cluster_name: vpn_gateway_1
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: vpn-gw-1.internal    # 指向当前的主网关
+              port_value: 15001
+  transport_socket:
+    name: envoy.transport_sockets.upstream_proxy_protocol
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport
+      config:
+        version: V2
+      # 内层传输。到内网服务用 TLS 时，把这里换成 TLS 传输：
+      # 握手在 Egress 与内网服务之间端到端完成，网关只转发密文，看不到注入的凭证。
+      transport_socket:
+        name: envoy.transport_sockets.raw_buffer
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer

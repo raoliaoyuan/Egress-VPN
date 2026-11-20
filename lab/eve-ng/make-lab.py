@@ -4,6 +4,7 @@
 节点和网络的编号从 21 起，避开同一台 EVE 上其他实验已经占用的小编号：
 EVE 的网卡名、网桥名和控制台端口只由租户号和编号决定，不同实验用了相同编号就不能同时运行。
 """
+import base64
 import json
 import os
 import uuid
@@ -46,5 +47,33 @@ for n in cfg["networks"]:
     )
 out.append("    </networks>")
 out.append("  </topology>")
+
+# 每个节点都有一条线连到管理网，画面很乱。EVE 网页端的 visibility="0" 只对恰好接两个节点的网桥有效，
+# 所以放一个文本对象，里面带一段样式，把连到 MGMT 的线和端口标签隐藏。样式只在打开本实验时生效，
+# 在网页里删掉这段文字就恢复显示。
+mgmt = next(n for n in cfg["networks"] if n["name"] == "MGMT")
+for pad in range(16):
+    note = (
+        f'<div id="customText1" class="customShape customText context-menu" data-path="1" '
+        f'style="display:inline;position:absolute;left:{max(mgmt["left"] - 15, 0)}px;top:{mgmt["top"] + 88}px; '
+        f'cursor:move; ;z-index:1001;"{" " * pad}>'
+        f'<p align="left" style="vertical-align:top;color:#808080;background-color:rgba(255, 255, 255, 0);'
+        f'font-size:12px;font-weight: normal;">管理网的连线已隐藏：<br>每个节点的最后一块网卡接 MGMT。<br>'
+        f'删除这段文字即可恢复显示。</p>'
+        f'<style>svg.network{mgmt["id"]},.node_interface.network{mgmt["id"]}{{display:none!important}}</style></div>'
+    )
+    data = base64.b64encode(note.encode()).decode()
+    # 网页端和服务端靠在数据里找 "div"、"style" 来判断它是不是已经解码，编码结果里碰巧出现就换一种对齐。
+    if "div" not in data and "style" not in data.lower():
+        break
+else:
+    raise SystemExit("文本对象的编码结果里总是出现 div 或 style")
+out.append("  <objects>")
+out.append("    <textobjects>")
+out.append('      <textobject id="1" name="hide-mgmt-links" type="text">')
+out.append(f"        <data>{data}</data>")
+out.append("      </textobject>")
+out.append("    </textobjects>")
+out.append("  </objects>")
 out.append("</lab>")
 print("\n".join(out))

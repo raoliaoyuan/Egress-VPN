@@ -14,10 +14,10 @@ table ip egress {
 		iifname "@VMIF@" ip daddr 10.1.255.0/24 drop
 	}
 
-	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy。80 和 8443 按 HTTP 处理，其余按四层处理。
+	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy。80、8443、9443 进七层监听器，其余按四层处理。
 	chain intercept {
 		type nat hook prerouting priority dstnat; policy accept;
-		iifname "@VMIF@" tcp dport { 80, 8443 } redirect to :15007
+		iifname "@VMIF@" tcp dport { 80, 8443, 9443 } redirect to :15007
 		iifname "@VMIF@" meta l4proto tcp redirect to :15006
 	}
 

@@ -25,9 +25,11 @@ bad = [float(t) for t, c in rows if c != "200"]
 if not bad:
     print(f"  {len(rows)} 次探测全部成功，没有观察到中断")
 else:
-    before = max(t for t in ok if t < bad[0])
+    before = max((t for t in ok if t < bad[0]), default=None)
     after = min((t for t in ok if t > bad[-1]), default=None)
-    if after is None:
+    if before is None:
+        print(f"  {len(rows)} 次探测，从一开始就失败，切换之前内网就不通")
+    elif after is None:
         print(f"  {len(rows)} 次探测，从第一次失败起没有再恢复")
     else:
         print(f"  {len(rows)} 次探测，失败 {len(bad)} 次；从最后一次成功到恢复后第一次成功相隔 {after - before:.1f} 秒")
@@ -54,7 +56,7 @@ check "vpn-server 看到网关改从 gw-2 接入，服务器配置没有改动" 
 for vm in vm-a vm-b vm-c; do
 	r=$(get "$vm" "http://$INTRANET_IP/")
 	check "$vm 经 gw-2 访问内网的来源不变" "${INTRA_IP[$vm]}" "$(echo "$r" | field client)"
-	check "$vm 的凭证照常注入" 已注入 "$(echo "$r" | cred)"
+	check "$vm 的凭证照常注入，服务认出的调用方" "$vm" "$(echo "$r" | field identity)"
 done
 
 say "2 重新启动 gw-1"

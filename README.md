@@ -6,7 +6,7 @@
 
 > **状态：设计稿，未在生产环境运行过。** 地址均为示例。
 >
-> 已验证：整套方案在 EVE-NG 实验环境里用真实的 WireGuard 和 Envoy（1.40.2）跑通，包括复现现状、迁移、回退、TLS 和主备切换，见 [lab/eve-ng/README.md](lab/eve-ng/README.md)。此前还在本机用网络命名空间做过模拟（见"本地模拟测试"）。
+> 已验证：整套方案在 EVE-NG 实验环境里用真实的 WireGuard 和 Envoy（1.40.2）跑通，包括复现现状、迁移、回退、TLS、主备切换，以及“虚拟机拿不到凭证”，见 [lab/eve-ng/README.md](lab/eve-ng/README.md)。此前还在本机用网络命名空间做过模拟（见"本地模拟测试"）。
 > 未验证：真实的 Egress。实验和模拟里的 Egress 都是按"透明劫持"假设写的参考实现；性能和容量也没有测过。
 
 ## 问题
@@ -73,7 +73,7 @@ VM(真实IP) → Egress [识别来源 → 授权 → 注入凭证]
 | [config/vpn-gateway/wg0.conf](config/vpn-gateway/wg0.conf) | VPN 网关 | WireGuard 隧道和路由 |
 | [config/vpn-gateway/envoy.yaml](config/vpn-gateway/envoy.yaml) | VPN 网关 | 四层 Envoy，按 PROXY 头的地址发起连接 |
 | [config/vpn-gateway/vpngw.nft](config/vpn-gateway/vpngw.nft) | VPN 网关 | 真实 IP 到内网 IP 的映射、回程标记 |
-| [config/egress/vpn-gateway-cluster.yaml](config/egress/vpn-gateway-cluster.yaml) | Egress | 指向网关的 cluster 片段，需合并进现有配置 |
+| [config/egress/vpn-gateway-cluster.yaml](config/egress/vpn-gateway-cluster.yaml) | Egress | 指向网关的 cluster 片段（含上游连接的空闲超时），需合并进现有配置 |
 
 示例地址：
 
@@ -133,6 +133,8 @@ bash test/gateway-kernel-path.sh
 
 ## 安全要点
 
+- **凭证只对指定的服务注入，并且尽量用客户端证书。** 不按目的地限定时，虚拟机向任意站点发一个请求，对方就收到凭证；用令牌时，服务一旦回显请求头，令牌就回到虚拟机。控制点见 [docs/design.md](docs/design.md) 的“凭证不落到虚拟机”，实验结果见 [lab/eve-ng/README.md](lab/eve-ng/README.md)。
+- **Egress 到网关的上游连接要设空闲超时。** 七层处理时每个请求都会留下一条空闲连接，Envoy 默认 1 小时才回收。配置里设的是 10 秒，按业务调整。
 - **Egress 要拒绝虚拟机访问网关所在的网段。** 否则虚拟机可以让 Egress 把自带伪造 PROXY 头的连接转给网关，冒充任意已登记的虚拟机。这一条是 EVE-NG 实验中发现并用对照测试证实的。
 - **来源识别要防伪造。** 认错来源等于让一台虚拟机冒用另一台的内网 IP。要依赖虚拟化层保证的源 IP 或网卡，并开启防地址欺骗，不能用虚拟机自己携带的标识。
 - **授权由 Egress 承担。** 以前 VPN 服务器逐台认证虚拟机，现在它信任的是网关。"哪台虚拟机能访问内网的什么"要在 Egress 上控制。内网侧按 IP 配置的访问控制仍然有效，因为内网 IP 没变。

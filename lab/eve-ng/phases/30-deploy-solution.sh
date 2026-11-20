@@ -19,6 +19,7 @@ for gw in gw-1 gw-2; do
 	put "$gw" "$FILES/lab-boot.service" /etc/systemd/system/lab-boot.service
 	put "$gw" "$FILES/envoy.service" /etc/systemd/system/envoy.service
 	put "$gw" "$FILES/keepalived.conf" /etc/keepalived/keepalived.conf.in
+	put "$gw" "$FILES/keepalived-stop.conf" /etc/systemd/system/keepalived.service.d/stop-tunnel.conf
 	rm -f "$STATE/tmp"
 	prio=100; [ "$gw" = gw-1 ] && prio=150
 	on "$gw" ". /etc/lab/ifaces.env
@@ -44,10 +45,8 @@ touch "$STATE/gateway-on"
 apply_server_conf
 
 say "Egress：换成带网关上游的配置"
-python3 "$FILES/gen-egress-envoy.py" solution "$(credential)" > "$STATE/tmp"
-put egress "$STATE/tmp" /etc/envoy/envoy.yaml
-rm -f "$STATE/tmp"
-on egress "chmod 600 /etc/envoy/envoy.yaml; systemctl restart envoy.service; sleep 2; systemctl is-active envoy.service"
+egress_files
+egress_config solution
 
 say "检查"
 sleep 3

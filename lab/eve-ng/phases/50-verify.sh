@@ -3,7 +3,6 @@
 # 结束时的状态：vm-a、vm-c 走新方案，vm-b 仍用旧方式（由 60-ha.sh 之前的步骤再迁移）。
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
-CRED=$(credential)
 
 say "准备：把三台虚拟机置于约定的起始状态（vm-a 已迁移，vm-b、vm-c 用旧方式）"
 grep -qw vm-a "$STATE/legacy" && "$(dirname "$0")/40-migrate.sh" vm-a >/dev/null
@@ -24,11 +23,11 @@ count() { on "$1" "tcpdump -nr $2 '$3' 2>/dev/null | wc -l"; }
 say "A 新旧并存"
 r=$(get vm-a "http://$INTRANET_IP/")
 check "A1 已迁移的 vm-a 经七层访问内网，来源仍是原来的内网 IP" 100.64.0.7 "$(echo "$r" | field client)"
-check "A2 vm-a 的请求带上了 Egress 注入的凭证" 已注入 "$(echo "$r" | cred)"
+check "A2 内网服务从 Egress 注入的凭证认出的调用方" vm-a "$(echo "$r" | field identity)"
 check "A3 vm-a 经四层访问内网（8080 端口），来源同样是内网 IP" 100.64.0.7 "$(get vm-a "http://$INTRANET_IP:8080/" | field client)"
 r=$(get vm-b "http://$INTRANET_IP/")
 check "A4 仍用旧方式的 vm-b 不受影响，来源是它自己的内网 IP" 100.64.0.8 "$(echo "$r" | field client)"
-check "A5 vm-b 的请求仍然没有凭证" 无 "$(echo "$r" | cred)"
+check "A5 vm-b 的请求仍然没有凭证，服务认不出调用方" 无 "$(echo "$r" | field identity)"
 r=$(get vm-a "http://$PUBLIC_IP/")
 check "A6 vm-a 访问公网不经过网关，来源是 Egress" 203.0.113.20 "$(echo "$r" | field client)"
 
@@ -44,6 +43,7 @@ check "B3 承载网上没有任何去往内网服务的明文包" 0 "$(count gw-
 
 say "C 未登记的虚拟机和失效的旧密钥"
 # vm-c 停用旧隧道、删除 peer，但不登记：它既不在旧方式里，也不在映射表里。
+# 这里故意把隧道配置留在虚拟机上，代表“有人事先留了一份旧密钥”，C3、C4 用它重新拨号。
 on vm-c "systemctl disable -q --now wg-quick@wg0"
 sed -i "s/\bvm-c\b//; s/  */ /g; s/^ //; s/ $//" "$STATE/legacy"
 apply_server_conf >/dev/null
@@ -53,7 +53,7 @@ check "C2 未登记的 vm-c 经四层访问内网" 被拦截 "$(get vm-c "http:/
 on vm-c "systemctl start wg-quick@wg0; sleep 1; ping -c2 -W2 $INTRANET_IP >/dev/null 2>&1; sleep 4"
 check "C3 vm-c 用旧密钥重新拨号，握手次数" 0 "$(on vm-c "wg show wg0 latest-handshakes | awk '{print \$2}'")"
 check "C4 vm-c 用旧密钥重新拨号后访问内网" 被拦截 "$(TIMEOUT=6 get vm-c "http://$INTRANET_IP/" | blocked)"
-on vm-c "systemctl stop wg-quick@wg0"
+on vm-c "systemctl stop wg-quick@wg0; rm -f /etc/wireguard/wg0.conf"
 
 say "D 网关入口和伪造身份"
 check "D1 虚拟机直连网关的 15001 端口" 不通 "$(on vm-a "nc -z -w 3 $GATEWAY_VIP 15001 >/dev/null 2>&1 && echo 通 || echo 不通")"
@@ -74,28 +74,28 @@ say "C（续）登记后立即可用"
 register vm-c >/dev/null
 r=$(get vm-c "http://$INTRANET_IP/")
 check "C5 登记 vm-c 后访问内网，来源是它原来的内网 IP" 100.64.0.99 "$(echo "$r" | field client)"
-check "C6 vm-c 的请求带上了凭证" 已注入 "$(echo "$r" | cred)"
+check "C6 内网服务从凭证认出的调用方" vm-c "$(echo "$r" | field identity)"
 
 say "E TLS：Egress 向内网服务发起 TLS，网关只看到密文"
 r=$(get vm-a "http://$INTRANET_IP:8443/")
 check "E1 vm-a 发明文请求，内网服务收到的是 TLS" true "$(echo "$r" | field tls)"
 check "E2 经 TLS 的请求来源仍是 vm-a 的内网 IP" 100.64.0.7 "$(echo "$r" | field client)"
-check "E3 经 TLS 的请求带上了凭证" 已注入 "$(echo "$r" | cred)"
+check "E3 经 TLS 的请求，内网服务从凭证认出的调用方" vm-a "$(echo "$r" | field identity)"
 capture gw-1 IF_SVC_NET 6 /tmp/e-tls.pcap "tcp port 15001"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP:8443/ >/dev/null; done; sleep 5"
-check "E4 走 TLS 时，网关收到的数据里凭证出现的次数" 0 "$(on gw-1 "tcpdump -Anr /tmp/e-tls.pcap 2>/dev/null | grep -c '$CRED' || true")"
+check "E4 走 TLS 时，网关收到的数据里凭证出现的次数" 0 "$(on gw-1 "tcpdump -Anr /tmp/e-tls.pcap 2>/dev/null | grep -cE '$TOKEN_RE' || true")"
 capture gw-1 IF_SVC_NET 6 /tmp/e-plain.pcap "tcp port 15001"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP/ >/dev/null; done; sleep 5"
-n=$(on gw-1 "tcpdump -Anr /tmp/e-plain.pcap 2>/dev/null | grep -c '$CRED' || true")
+n=$(on gw-1 "tcpdump -Anr /tmp/e-plain.pcap 2>/dev/null | grep -cE '$TOKEN_RE' || true")
 if [ "$n" -gt 0 ]; then echo "通过：E5 对照：不走 TLS 时，凭证在网关上以明文可见（出现 $n 次）"; else echo "失败：E5 对照组没有在网关上看到明文凭证"; FAILS=$((FAILS + 1)); fi
 
 say "F 回退和再次迁移"
 "$(dirname "$0")/41-rollback.sh" vm-a >/dev/null
 r=$(get vm-a "http://$INTRANET_IP/")
 check "F1 vm-a 回退到旧方式后访问内网，来源不变" 100.64.0.7 "$(echo "$r" | field client)"
-check "F2 回退后 vm-a 的请求不再有凭证" 无 "$(echo "$r" | cred)"
+check "F2 回退后 vm-a 的请求不再有凭证" 无 "$(echo "$r" | field identity)"
 "$(dirname "$0")/40-migrate.sh" vm-a >/dev/null
 r=$(get vm-a "http://$INTRANET_IP/")
 check "F3 vm-a 再次迁移后访问内网，来源不变" 100.64.0.7 "$(echo "$r" | field client)"
-check "F4 再次迁移后凭证恢复注入" 已注入 "$(echo "$r" | cred)"
+check "F4 再次迁移后凭证恢复注入，服务认出的调用方" vm-a "$(echo "$r" | field identity)"
 finish

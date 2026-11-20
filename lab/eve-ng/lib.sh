@@ -39,3 +39,9 @@ put() {
 	local ip; ip=$(node_ip "$1")
 	$SSH_NODE "lab@$ip" "sudo mkdir -p $(dirname "$3") && sudo tee $3 >/dev/null" < "$2"
 }
+
+# put_secret：同 put，但文件从创建起就只有 root 能读。用于私钥和含凭证的配置。
+put_secret() {
+	local ip; ip=$(node_ip "$1")
+	$SSH_NODE "lab@$ip" "sudo mkdir -p $(dirname "$3") && sudo sh -c 'umask 077; rm -f $3; cat > $3'" < "$2"
+}

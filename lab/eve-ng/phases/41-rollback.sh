@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 把一台已迁移的虚拟机回退到旧方式。用法：41-rollback.sh <虚拟机名>
-# 与文档一致：在 vpn-server 上恢复它的 /32 peer，重新启动它的 VPN 客户端，再从映射表删除它的记录。
+# 与文档一致：在 vpn-server 上恢复它的 /32 peer，把隧道配置放回虚拟机并启动 VPN 客户端，再从映射表删除它的记录。
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
 vm=${1:?用法：41-rollback.sh <虚拟机名>}
@@ -13,7 +13,8 @@ if ! grep -qw "$vm" "$STATE/legacy"; then
 fi
 apply_server_conf
 
-say "2/3 重新启动 $vm 上的 VPN 客户端"
+say "2/3 把隧道配置放回 $vm，重新启动 VPN 客户端"
+install_vm_wg "$vm"
 on "$vm" "systemctl enable -q --now wg-quick@wg0; ip link show wg0 >/dev/null 2>&1 && echo '隧道已启动'"
 
 say "3/3 从地址分配表删除 $vm 的记录"

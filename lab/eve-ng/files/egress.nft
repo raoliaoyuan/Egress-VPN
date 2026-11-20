@@ -1,0 +1,36 @@
+#!/usr/sbin/nft -f
+# 实验里 Egress 节点的内核规则。@VMIF@、@WANIF@ 由部署脚本替换成网卡名。
+# 这是参考实现的一部分，用来在实验里扮演“透明劫持”的 Egress。
+
+table ip egress
+delete table ip egress
+
+table ip egress {
+	# 虚拟机不能访问服务网段（VPN 网关所在的网段）。
+	# 没有这一条，虚拟机可以让 Egress 替它连到网关的 15001 端口，并自带一个伪造的 PROXY 头，
+	# 网关信任来自 Egress 的连接，于是虚拟机就能冒充任意虚拟机。必须在劫持之前拦掉。
+	chain guard {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname "@VMIF@" ip daddr 10.1.255.0/24 drop
+	}
+
+	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy。80 和 8443 按 HTTP 处理，其余按四层处理。
+	chain intercept {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "@VMIF@" tcp dport { 80, 8443 } redirect to :15007
+		iifname "@VMIF@" meta l4proto tcp redirect to :15006
+	}
+
+	# 非 TCP 的流量（现状下虚拟机自带隧道的 UDP）由 Egress 转发到承载网，源地址换成 Egress 自己的。
+	chain masq_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "@WANIF@" ip saddr 10.1.2.0/24 masquerade
+	}
+
+	# 只转发“虚拟机网到承载网”这一个方向，虚拟机到不了服务网段。
+	chain vm_forward {
+		type filter hook forward priority filter; policy drop;
+		ct state established,related accept
+		iifname "@VMIF@" oifname "@WANIF@" accept
+	}
+}

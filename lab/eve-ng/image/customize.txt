@@ -1,0 +1,22 @@
+install wireguard-tools,nftables,tcpdump,curl,openssl,keepalived,conntrack,netcat-openbsd,jq,python3,iputils-ping,ca-certificates,sudo
+touch /etc/cloud/cloud-init.disabled
+mkdir /opt/lab
+upload nodes.json:/opt/lab/nodes.json
+upload lab-init.py:/opt/lab/lab-init.py
+upload lab-init.service:/etc/systemd/system/lab-init.service
+upload envoy:/usr/local/bin/envoy
+chmod 0755:/usr/local/bin/envoy
+run-command id lab >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo lab
+mkdir /home/lab/.ssh
+upload lab.pub:/home/lab/.ssh/authorized_keys
+run-command chown -R lab:lab /home/lab/.ssh && chmod 700 /home/lab/.ssh && chmod 600 /home/lab/.ssh/authorized_keys
+upload sudoers-lab:/etc/sudoers.d/lab
+chmod 0440:/etc/sudoers.d/lab
+upload sshd-lab.conf:/etc/ssh/sshd_config.d/10-lab.conf
+mkdir /etc/systemd/system/serial-getty@ttyS0.service.d
+upload console-autologin.conf:/etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
+run-command chown -R root:root /opt/lab /usr/local/bin/envoy /etc/systemd/system/lab-init.service /etc/sudoers.d/lab /etc/ssh/sshd_config.d/10-lab.conf /etc/systemd/system/serial-getty@ttyS0.service.d
+run-command ssh-keygen -A
+run-command systemctl enable lab-init.service ssh.service
+run-command systemctl disable keepalived.service nftables.service unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer || true
+run-command systemctl mask systemd-networkd-wait-online.service || true

@@ -1,0 +1,12 @@
+[Unit]
+Description=Egress-VPN lab boot-time rules
+After=lab-init.service
+Before=envoy.service keepalived.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /etc/lab/boot.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Envoy
+After=network.target lab-init.service
+
+[Service]
+ExecStart=/usr/local/bin/envoy -c /etc/envoy/envoy.yaml --disable-hot-restart -l warn --log-path /var/log/envoy.log
+Restart=always
+RestartSec=1
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

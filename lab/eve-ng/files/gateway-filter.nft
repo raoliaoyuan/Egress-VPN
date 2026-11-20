@@ -1,0 +1,13 @@
+#!/usr/sbin/nft -f
+# 实验里 VPN 网关的入口过滤：15001 端口只对 Egress 实例开放。@SVCIF@ 由部署脚本替换成网卡名。
+# 网关无条件信任 PROXY 头里的地址，所以除了 Egress，谁都不能连这个端口。
+
+table ip gwfilter
+delete table ip gwfilter
+
+table ip gwfilter {
+	chain input {
+		type filter hook input priority filter; policy accept;
+		iifname "@SVCIF@" tcp dport 15001 ip saddr != 10.1.255.20 drop
+	}
+}

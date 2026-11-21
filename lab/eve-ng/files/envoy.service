@@ -1,6 +1,9 @@
 [Unit]
 Description=Envoy
 After=network.target lab-init.service
+# 实验脚本每换一次配置就重启一次 Envoy，连着跑几个阶段会超过 systemd 默认的启动频率限制（10 秒 5 次），
+# 超过之后服务停在失败状态不再启动。这里取消这个限制。
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/envoy -c /etc/envoy/envoy.yaml --disable-hot-restart -l warn --log-path /var/log/envoy.log

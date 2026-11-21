@@ -9,8 +9,11 @@ GATEWAY_VIP=10.1.255.10
 declare -A REAL_IP=([vm-a]=10.1.2.3 [vm-b]=10.1.2.4 [vm-c]=10.1.2.99)
 declare -A INTRA_IP=([vm-a]=100.64.0.7 [vm-b]=100.64.0.8 [vm-c]=100.64.0.99)
 VMS=(vm-a vm-b vm-c)
-# 令牌的样子。检查“有没有泄露”时只按这个样子去找，不把令牌本身发到虚拟机上。
-TOKEN_RE='lab-token-[0-9a-f]{24}'
+GATEWAY_BLOCK=100.64.0.0/22   # 网关单元 1 的内网地址块，所有虚拟机的内网 IP 都在里面
+SHARED_USER=svc-batch         # 内网服务上所有虚拟机共用的那个账号（静态凭证）
+# 凭证的样子：令牌、静态口令，以及共用账号编码成 Authorization: Basic 之后固定不变的开头
+# （“$SHARED_USER:lab-static-”的 base64）。检查“有没有泄露”时只按样子去找，不把凭证本身发到虚拟机上。
+TOKEN_RE='lab-(token|static)-[0-9a-f]{24}|c3ZjLWJhdGNoOmxhYi1zdGF0aWMt'
 
 wgkey() { cat "$STATE/wg/$1.key"; }
 wgpub() { cat "$STATE/wg/$1.pub"; }
@@ -38,6 +41,28 @@ check() { # 说明 期望值 实际值
 		echo "失败：$1，期望 $2，实际 $3"
 		FAILS=$((FAILS + 1))
 	fi
+}
+ctrl() { # 说明 期望值 实际值：对照实验，预期问题会出现
+	if [ "$3" = "$2" ]; then
+		echo "对照成立：$1（$3）"
+	else
+		echo "失败：$1，对照组期望 $2，实际 $3"
+		FAILS=$((FAILS + 1))
+	fi
+}
+leak() { # 说明 实际找到的凭证数：对照实验，预期能拿到
+	if [ "$2" -gt 0 ]; then echo "对照成立：$1（拿到 $2 个凭证）"; else echo "失败：$1，对照组没有拿到凭证"; FAILS=$((FAILS + 1)); fi
+}
+body() { on "$1" "curl -s -m 8 ${3:-} '$2'" 2>/dev/null || true; }                          # 响应体原文
+code() { on "$1" "curl -s -m 8 -o /dev/null -w '%{http_code}' ${3:-} '$2'" 2>/dev/null || true; }   # HTTP 状态码
+tokens_in() { grep -oE "$TOKEN_RE" | sort -u | wc -l; }                                      # 输入里有几个不同的凭证
+# scan_fs <节点>：扫一遍整个文件系统，列出含令牌样式或私钥标记的文件；含私钥标记的算出摘要，回来和上面的清单比对。
+scan_fs() {
+	on "$1" "LC_ALL=C grep -rlE --binary-files=text -e '$TOKEN_RE' -e 'BEGIN [A-Z ]*PRIVATE KEY' / \
+--exclude-dir=proc --exclude-dir=sys --exclude-dir=dev --exclude-dir=run 2>/dev/null | while read -r f; do
+	if LC_ALL=C grep -qE --binary-files=text '$TOKEN_RE' \"\$f\"; then echo \"token \$f\"; fi
+	if LC_ALL=C grep -q --binary-files=text 'PRIVATE KEY' \"\$f\"; then echo \"key \$(sha256sum < \"\$f\" | cut -d' ' -f1)\"; fi
+done; echo scanned" || true
 }
 finish() {
 	echo
@@ -115,6 +140,23 @@ CONF
 	rm -f "$STATE/wg0.tmp"
 }
 
+# ---------- 内网服务的凭证表 ----------
+# svc_table <bound|open>：生成内网服务的凭证表并下发。每行“摘要 身份 [允许的来源]”，服务端只拿到摘要。
+# bound 是正常做法：每台虚拟机的令牌和口令只接受从它自己的内网 IP 发来，共用账号只接受从网关的地址块发来。
+# open 不限定来源，只用于对照。
+svc_table() {
+	local vm
+	digest() { tr -d '\n' < "$1" | sha256sum | cut -d' ' -f1; }
+	{
+		for vm in "${VMS[@]}"; do
+			echo "$(digest "$STATE/creds/$vm.intranet-svc.token") $vm $([ "$1" = bound ] && echo "${INTRA_IP[$vm]}")"
+			echo "$(digest "$STATE/creds/$vm.intranet-svc.pass") $vm $([ "$1" = bound ] && echo "${INTRA_IP[$vm]}")"
+		done
+		echo "$(digest "$STATE/creds/intranet-svc.shared") $SHARED_USER $([ "$1" = bound ] && echo "$GATEWAY_BLOCK")"
+	} > "$STATE/creds/intranet-svc.hashes"
+	put intranet-svc "$STATE/creds/intranet-svc.hashes" /etc/lab/tokens
+}
+
 # ---------- Egress ----------
 # egress_files：Egress 上不随阶段变化的文件：服务单元、内核规则、内网服务的 CA、各虚拟机的客户端证书。
 egress_files() {
@@ -137,7 +179,7 @@ chmod 700 /etc/lab/client
 systemctl daemon-reload; systemctl enable -q envoy.service lab-boot.service'
 }
 
-# egress_config <baseline|solution> [给凭证的虚拟机，空格分隔，默认全部] [--unscoped]
+# egress_config <baseline|solution> [给凭证的虚拟机，空格分隔，默认全部] [--unscoped|--redis-inject]
 # 生成 Egress 的 Envoy 配置，在节点上校验通过后替换并重启。配置里有令牌，全程只有 root 能读。
 egress_config() {
 	local stage=$1 vms=${2-${VMS[*]}} vm

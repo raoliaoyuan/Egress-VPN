@@ -16,7 +16,9 @@ blocked() { # 把回显结果归纳成“被拦截”或“连通，来源 X”
 	if [ "$e" != 无 ]; then echo "被拦截"; else echo "连通，来源 $(echo "$r" | field client)"; fi
 }
 capture() { # 节点 网卡变量名 秒数 文件 过滤表达式：后台抓包
-	on "$1" ". /etc/lab/ifaces.env; timeout $3 tcpdump -ni \$$2 -s0 -w $4 '$5' >/dev/null 2>&1 &"
+	# 先删掉上次的文件：tcpdump 写出的文件属于 tcpdump 用户，系统不允许 root 覆盖 /tmp 下别人的文件，
+	# 不删的话这次抓包会写不进去，后面读到的就是上次的结果。
+	on "$1" ". /etc/lab/ifaces.env; rm -f $4; timeout $3 tcpdump -ni \$$2 -s0 -w $4 '$5' >/dev/null 2>&1 &"
 }
 count() { on "$1" "tcpdump -nr $2 '$3' 2>/dev/null | wc -l"; }
 
@@ -83,7 +85,7 @@ check "E2 经 TLS 的请求来源仍是 vm-a 的内网 IP" 100.64.0.7 "$(echo "$
 check "E3 经 TLS 的请求，内网服务从凭证认出的调用方" vm-a "$(echo "$r" | field identity)"
 capture gw-1 IF_SVC_NET 6 /tmp/e-tls.pcap "tcp port 15001"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP:8443/ >/dev/null; done; sleep 5"
-check "E4 走 TLS 时，网关收到的数据里凭证出现的次数" 0 "$(on gw-1 "tcpdump -Anr /tmp/e-tls.pcap 2>/dev/null | grep -cE '$TOKEN_RE' || true")"
+check "E4 走 TLS 时，网关上抓到了这几次请求的包、其中凭证出现的次数" "抓到 0" "$([ "$(count gw-1 /tmp/e-tls.pcap "tcp port 15001")" -gt 0 ] && echo 抓到 || echo 没抓到) $(on gw-1 "tcpdump -Anr /tmp/e-tls.pcap 2>/dev/null | grep -cE '$TOKEN_RE' || true")"
 capture gw-1 IF_SVC_NET 6 /tmp/e-plain.pcap "tcp port 15001"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP/ >/dev/null; done; sleep 5"
 n=$(on gw-1 "tcpdump -Anr /tmp/e-plain.pcap 2>/dev/null | grep -cE '$TOKEN_RE' || true")

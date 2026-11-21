@@ -16,7 +16,9 @@ check "vm-a 访问公网站点，站点从凭证认出的调用方" vm-a "$(echo
 
 say "Egress 在虚拟机网卡上能看到什么"
 # vm-a 访问内网期间，在 Egress 面向虚拟机的网卡上抓包 4 秒。
-on egress '. /etc/lab/ifaces.env; timeout 4 tcpdump -ni $IF_VM_NET -w /tmp/base.pcap "host 10.1.2.3" >/dev/null 2>&1 &'
+# 先删掉上次的文件：tcpdump 写出的文件属于 tcpdump 用户，系统不允许 root 覆盖 /tmp 下别人的文件，
+# 不删的话这次抓包会写不进去，后面读到的就是上次的结果。
+on egress '. /etc/lab/ifaces.env; rm -f /tmp/base.pcap; timeout 4 tcpdump -ni $IF_VM_NET -w /tmp/base.pcap "host 10.1.2.3" >/dev/null 2>&1 &'
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP/ >/dev/null; done; sleep 3"
 counts=$(on egress 'udp=$(tcpdump -nr /tmp/base.pcap "udp port 51820" 2>/dev/null | wc -l)
 tcp=$(tcpdump -nr /tmp/base.pcap "tcp and host 10.200.5.6" 2>/dev/null | wc -l)

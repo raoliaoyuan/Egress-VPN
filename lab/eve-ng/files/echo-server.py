@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 """回显服务：把看到的来源地址，以及它从凭证认出的调用方身份，以 JSON 返回。
-用法：echo-server.py <服务名> [--cert 证书 --key 私钥] [--client-ca 客户端CA] [--tokens 令牌表]
+用法：echo-server.py <服务名> [--cert 证书 --key 私钥] [--client-ca 客户端CA] [--tokens 凭证表]
 
 端口：
-- 80、8080：HTTP。实验里 Egress 对 80 做七层处理，8080 按四层转发。
+- 80、8080、8081：HTTP。实验里 Egress 对 80、8081 做七层处理，8080 按四层转发，
+  代表“服务上没有被 Egress 覆盖的入口”。
 - 8443：HTTPS（给了 --cert、--key 时）。
 - 9443：HTTPS，并且要求客户端证书（另外给了 --client-ca 时）。身份取自证书的 CN。
 
-凭证的两种形式：
-- 请求头 x-egress-credential 里的令牌。服务只保存令牌的 SHA-256（--tokens 指向的文件，每行“摘要 身份”），
-  认得出就返回对应的身份，认不出返回 unknown。响应里不带令牌本身。
+凭证的三种形式：
+- 请求头 x-egress-credential 里的令牌，认出的身份放在响应的 identity 里。
+- 请求头 Authorization: Basic 里的账号和口令（静态凭证），认出的账号放在响应的 account 里。
 - 客户端证书。私钥不在线路上传输，服务想回显也回显不出来。
+
+凭证表（--tokens 指向的文件）每行“摘要 身份 [允许的来源]”：摘要是令牌或“账号:口令”的 SHA-256，
+服务不保存凭证本身。第三列是一个地址或网段，写了就只接受从那里发来的这份凭证，
+来源不符时返回 wrong-source；认不出的凭证返回 unknown。响应里不带凭证本身。
 
 /reflect 把收到的请求头原样放进响应，TRACE 方法按 HTTP 的定义回显整个请求。
 它们代表“服务端会把请求内容带回来”的情况（调试接口、错误页），实验用来演示令牌这种凭证的固有限制。
 """
 import argparse
+import base64
 import hashlib
+import ipaddress
 import json
 import ssl
 import threading
@@ -32,18 +39,20 @@ ARGS = ap.parse_args()
 HEADER = "x-egress-credential"
 
 
-def identities():
-    """每次请求都重新读令牌表，改了不用重启服务。"""
-    table = {}
-    if ARGS.tokens:
-        try:
-            for line in open(ARGS.tokens):
-                parts = line.split()
-                if len(parts) == 2:
-                    table[parts[0]] = parts[1]
-        except OSError:
-            pass
-    return table
+def recognize(secret, client):
+    """从凭证表里找这份凭证。每次请求都重新读表，改了不用重启服务。"""
+    digest = hashlib.sha256(secret.encode()).hexdigest()
+    try:
+        lines = open(ARGS.tokens).read().splitlines() if ARGS.tokens else []
+    except OSError:
+        lines = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == digest:
+            if len(parts) >= 3 and ipaddress.ip_address(client) not in ipaddress.ip_network(parts[2], strict=False):
+                return "wrong-source"
+            return parts[1]
+    return "unknown"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -60,10 +69,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         tls = isinstance(self.connection, ssl.SSLSocket)
+        client = self.client_address[0]
         token = self.headers.get(HEADER)
-        identity = None
-        if token is not None:
-            identity = identities().get(hashlib.sha256(token.encode()).hexdigest(), "unknown")
+        identity = recognize(token, client) if token is not None else None
+        account = None
+        basic = self.headers.get("Authorization", "")
+        if basic.lower().startswith("basic "):
+            try:
+                account = recognize(base64.b64decode(basic[6:]).decode(), client)
+            except ValueError:
+                account = "unknown"
         cert_cn = None
         if tls:
             for rdn in (self.connection.getpeercert() or {}).get("subject", ()):
@@ -72,9 +87,10 @@ class Handler(BaseHTTPRequestHandler):
                         cert_cn = value
         out = {
             "server": ARGS.name,
-            "client": self.client_address[0],
+            "client": client,
             "tls": tls,
             "identity": identity,
+            "account": account,
             "client_cert": cert_cn,
             "path": self.path,
         }
@@ -110,5 +126,6 @@ if ARGS.cert:
     threading.Thread(target=serve, args=(8443, tls_context(False)), daemon=True).start()
     if ARGS.client_ca:
         threading.Thread(target=serve, args=(9443, tls_context(True)), daemon=True).start()
-threading.Thread(target=serve, args=(8080,), daemon=True).start()
+for port in (8080, 8081):
+    threading.Thread(target=serve, args=(port,), daemon=True).start()
 serve(80)

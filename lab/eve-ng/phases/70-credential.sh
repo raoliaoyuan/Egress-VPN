@@ -18,14 +18,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-body() { on "$1" "curl -s -m 8 ${3:-} '$2'" 2>/dev/null || true; }                          # 响应体原文
-code() { on "$1" "curl -s -m 8 -o /dev/null -w '%{http_code}' ${3:-} '$2'" 2>/dev/null || true; }   # HTTP 状态码
-tokens_in() { grep -oE "$TOKEN_RE" | sort -u | wc -l; }                                      # 输入里有几个不同的令牌
 # 回显服务 /reflect 的响应里，服务收到了几个凭证头。
 cred_headers() { jq -r '[.headers | keys[] | select(ascii_downcase == "x-egress-credential")] | length' 2>/dev/null || echo 无法解析; }
-leak() { # 说明 实际找到的令牌数：对照实验，预期能拿到
-	if [ "$2" -gt 0 ]; then echo "对照成立：$1（拿到 $2 个令牌）"; else echo "失败：$1，对照组没有拿到令牌"; FAILS=$((FAILS + 1)); fi
-}
 
 say "准备：全部虚拟机走新方案，Egress 用正常配置"
 for vm in $(cat "$STATE/legacy"); do "$(dirname "$0")/40-migrate.sh" "$vm" >/dev/null; echo "已迁移 $vm"; done
@@ -61,7 +55,7 @@ done
 r=$(get vm-a "http://$INTRANET_IP:9443/reflect" "-H 'x-egress-credential: forged-by-vm'")
 check "J2 服务把请求头全部带回来：其中的凭证头个数、令牌数" "0 0" "$(echo "$r" | cred_headers) $(echo "$r" | tokens_in)"
 check "J3 虚拟机绕开明文、自己向 9443 发起 TLS" 失败 "$(on vm-a "curl -sk -m 6 -o /dev/null https://$INTRANET_IP:9443/ && echo 连通 || echo 失败")"
-on gw-1 ". /etc/lab/ifaces.env; timeout 6 tcpdump -ni \$IF_SVC_NET -s0 -w /tmp/j.pcap 'tcp port 15001' >/dev/null 2>&1 &"
+on gw-1 ". /etc/lab/ifaces.env; rm -f /tmp/j.pcap; timeout 6 tcpdump -ni \$IF_SVC_NET -s0 -w /tmp/j.pcap 'tcp port 15001' >/dev/null 2>&1 &"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 -o /dev/null http://$INTRANET_IP:9443/; done; sleep 5"
 r=$(on gw-1 "echo \$(tcpdump -nr /tmp/j.pcap 2>/dev/null | wc -l) \$(tcpdump -Anr /tmp/j.pcap 2>/dev/null | grep -c 'HTTP/1.1' || true)")
 if [ "${r% *}" -gt 0 ]; then echo "通过：J4 网关上抓到了这几次请求的包（${r% *} 个）"; else echo "失败：J4 网关上没有抓到包"; FAILS=$((FAILS + 1)); fi
@@ -70,14 +64,6 @@ check "J5 这些包里能看到的明文 HTTP 行数" 0 "${r#* }"
 say "K 虚拟机的磁盘和网卡上找不到凭证"
 # 不能出现在虚拟机上的私钥：各虚拟机的客户端私钥、内网服务和两个 CA 的私钥。只比对文件摘要，不把私钥发过去。
 secret_hashes=$(sha256sum "$STATE"/tls/*.key | cut -d' ' -f1)
-# scan_fs <节点>：扫一遍整个文件系统，列出含令牌样式或私钥标记的文件；含私钥标记的算出摘要，回来和上面的清单比对。
-scan_fs() {
-	on "$1" "LC_ALL=C grep -rlE --binary-files=text -e '$TOKEN_RE' -e 'BEGIN [A-Z ]*PRIVATE KEY' / \
---exclude-dir=proc --exclude-dir=sys --exclude-dir=dev --exclude-dir=run 2>/dev/null | while read -r f; do
-	if LC_ALL=C grep -qE --binary-files=text '$TOKEN_RE' \"\$f\"; then echo \"token \$f\"; fi
-	if LC_ALL=C grep -q --binary-files=text 'PRIVATE KEY' \"\$f\"; then echo \"key \$(sha256sum < \"\$f\" | cut -d' ' -f1)\"; fi
-done; echo scanned" || true
-}
 same_keys() { awk '$1 == "key" {print $2}' | grep -cFx -f <(echo "$secret_hashes") || true; }
 # 对照：同样的扫描在 Egress 上应当找得到，说明这个扫描方法是有效的。
 scan=$(scan_fs egress)
@@ -96,7 +82,7 @@ for vm in "${VMS[@]}"; do
 	check "K3 $vm 上的隧道配置和隧道网卡" "没有 没有" \
 		"$(on "$vm" "[ -e /etc/wireguard/wg0.conf ] && echo 有 || echo 没有") $(on "$vm" "ip link show wg0 >/dev/null 2>&1 && echo 有 || echo 没有")"
 	# 在虚拟机自己的网卡上抓包，同时访问全部指定的服务：虚拟机这一侧的线路上不应出现令牌。
-	r=$(on "$vm" ". /etc/lab/ifaces.env; timeout 7 tcpdump -ni \$IF_VM_NET -s0 -w /tmp/k.pcap tcp >/dev/null 2>&1 &
+	r=$(on "$vm" ". /etc/lab/ifaces.env; rm -f /tmp/k.pcap; timeout 7 tcpdump -ni \$IF_VM_NET -s0 -w /tmp/k.pcap tcp >/dev/null 2>&1 &
 sleep 1
 for u in http://$INTRANET_IP/ http://$INTRANET_IP:8443/ http://$INTRANET_IP:9443/ http://$PUBLIC_IP/; do curl -s -m 3 -o /dev/null \$u; done
 sleep 7

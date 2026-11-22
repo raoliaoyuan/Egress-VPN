@@ -4,6 +4,11 @@
 # vpn-server 加入网关 peer；Egress 换成带网关上游的配置。完成后虚拟机仍走各自的旧隧道，行为应当不变。
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
+. "$(dirname "$0")/scale-lib.sh"
+
+say "基础形态：一个网关单元，gw-1 主用、gw-2 备用（部署过多单元或数据面 B 的话，先撤掉）"
+reset_to_base
+for gw in gw-1 gw-2; do on "$gw" "systemctl stop keepalived.service 2>/dev/null; true"; done
 
 for gw in gw-1 gw-2; do
 	say "$gw：WireGuard 配置、Envoy、nftables、入口过滤、keepalived"
@@ -15,6 +20,8 @@ for gw in gw-1 gw-2; do
 	put "$gw" "$STATE/tmp" /etc/lab/vpngw.nft
 	put "$gw" "$FILES/gateway-filter.nft" /etc/lab/gwfilter.nft.in
 	put "$gw" "$FILES/gateway-boot.sh" /etc/lab/boot.sh
+	put "$gw" "$FILES/tune.sh" /etc/lab/tune.sh
+	put "$gw" "$FILES/load-map.sh" /etc/lab/load-map.sh
 	put "$gw" "$FILES/gateway-notify.sh" /etc/lab/notify.sh
 	put "$gw" "$FILES/lab-boot.service" /etc/systemd/system/lab-boot.service
 	put "$gw" "$FILES/envoy.service" /etc/systemd/system/envoy.service
@@ -23,7 +30,7 @@ for gw in gw-1 gw-2; do
 	rm -f "$STATE/tmp"
 	prio=100; [ "$gw" = gw-1 ] && prio=150
 	on "$gw" ". /etc/lab/ifaces.env
-chmod 600 /etc/wireguard/wg0.conf; chmod 755 /etc/lab/boot.sh /etc/lab/notify.sh
+chmod 600 /etc/wireguard/wg0.conf; chmod 755 /etc/lab/boot.sh /etc/lab/notify.sh /etc/lab/tune.sh /etc/lab/load-map.sh
 sed \"s/@SVCIF@/\$IF_SVC_NET/g\" /etc/lab/gwfilter.nft.in > /etc/lab/gwfilter.nft
 sed -e \"s/@SVCIF@/\$IF_SVC_NET/g\" -e 's/@PRIO@/$prio/' /etc/keepalived/keepalived.conf.in > /etc/keepalived/keepalived.conf
 systemctl daemon-reload

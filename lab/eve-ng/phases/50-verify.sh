@@ -34,10 +34,10 @@ r=$(get vm-a "http://$PUBLIC_IP/")
 check "A6 vm-a 访问公网不经过网关，来源是 Egress" 203.0.113.20 "$(echo "$r" | field client)"
 
 say "B 抓包：明文和密文各出现在哪一段"
-capture egress IF_VM_NET 6 /tmp/b-vm.pcap "host 10.1.2.3 and host $INTRANET_IP"
+capture egress-1 IF_ACC_NET 6 /tmp/b-vm.pcap "host 10.1.2.3 and host $INTRANET_IP"
 capture gw-1 IF_WAN 6 /tmp/b-wan.pcap "not arp"
 on vm-a "sleep 1; for i in 1 2 3; do curl -s -m 3 http://$INTRANET_IP/ >/dev/null; done; sleep 5"
-n=$(count egress /tmp/b-vm.pcap "tcp port 80")
+n=$(count egress-1 /tmp/b-vm.pcap "tcp port 80")
 if [ "$n" -gt 0 ]; then echo "通过：B1 Egress 现在能看到 vm-a 去内网的明文 TCP（$n 个包）"; else echo "失败：B1 Egress 没有看到明文 TCP"; FAILS=$((FAILS + 1)); fi
 n=$(count gw-1 /tmp/b-wan.pcap "udp port 51820")
 if [ "$n" -gt 0 ]; then echo "通过：B2 网关到 vpn-server 之间是 WireGuard 的 UDP（$n 个包）"; else echo "失败：B2 没有抓到隧道的包"; FAILS=$((FAILS + 1)); fi
@@ -67,9 +67,9 @@ spoof() {
 }
 check "D3 vm-c 伪造 PROXY 头冒充 vm-a（Egress 有拦截规则）" 无响应 "$(spoof)"
 # 对照：临时去掉 Egress 上“虚拟机不能访问服务网段”的规则，同样的伪造就会成功。
-on egress "nft flush chain ip egress guard"
+on egress-1 "nft flush chain ip egress guard"
 check "D4 对照：去掉拦截规则后，同样的伪造会被内网当成 vm-a" 100.64.0.7 "$(spoof)"
-on egress "nft -f /etc/lab/egress.nft"
+on egress-1 "nft -f /etc/lab/egress.nft"
 check "D5 恢复拦截规则后再次伪造" 无响应 "$(spoof)"
 
 say "C（续）登记后立即可用"

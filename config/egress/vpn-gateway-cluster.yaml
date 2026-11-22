@@ -25,6 +25,15 @@ clusters:
             socket_address:
               address: vpn-gw-1.internal    # 指向当前的主网关
               port_value: 15001
+  # 必须放宽熔断阈值。Envoy 默认每个上游集群最多 1024 条连接、1024 个在途请求，
+  # 而本方案里每条虚拟机的连接都对应一条到网关的连接，不能复用（见下面的空闲超时）。
+  # EVE-NG 实验里，默认值下每秒一百多个请求就开始返回 503。数值按容量规划定，这里是实验用的值。
+  circuit_breakers:
+    thresholds:
+    - priority: DEFAULT
+      max_connections: 200000
+      max_pending_requests: 200000
+      max_requests: 200000
   # 七层处理（HTTP）时必须缩短上游连接的空闲超时。
   # PROXY 头里带着下游连接的地址和端口，所以 Envoy 给每条下游连接单独建一条上游连接，不同的下游连接之间不复用。
   # 下游连接关闭后，这条上游连接就一直空着，默认要等 1 小时才关，期间在网关和内网服务上各占一条连接。

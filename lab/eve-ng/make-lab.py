@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """按 nodes.json 生成 EVE-NG 的实验文件（.unl），输出到标准输出。
 
+用法：make-lab.py [--merge 现有的实验文件]
+加 --merge 时，现有文件里已经有的节点和网络沿用它们在画面上的位置，文本对象等也原样保留；
+nodes.json 里新增的节点和网络用 nodes.json 里的位置。用来在不打乱画面布局的前提下增量修改实验。
+
 节点和网络的编号从 21 起，避开同一台 EVE 上其他实验已经占用的小编号：
 EVE 的网卡名、网桥名和控制台端口只由租户号和编号决定，不同实验用了相同编号就不能同时运行。
 """
 import base64
 import json
 import os
+import re
+import sys
 import uuid
+import xml.etree.ElementTree as ET
 from xml.sax.saxutils import quoteattr as q
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +22,27 @@ cfg = json.load(open(os.path.join(HERE, "nodes.json")))
 NS = uuid.UUID("6f0d3c1e-5b7a-4e2a-9c1f-2d4e5f6a7b80")
 net_id = {n["name"]: n["id"] for n in cfg["networks"]}
 lab = cfg["lab"]
+
+# --merge：读出现有文件里各节点、各网络的位置，以及 <objects> 整段
+old_pos, old_uuid, old_objects = {}, {}, None
+if len(sys.argv) == 3 and sys.argv[1] == "--merge":
+    raw = open(sys.argv[2], encoding="utf-8").read()
+    topo = ET.fromstring(raw).find("topology")
+    for kind in ("node", "network"):
+        for el in topo.iter(kind):
+            old_pos[(kind, int(el.get("id")))] = (el.get("left"), el.get("top"))
+            if el.get("uuid"):
+                old_uuid[int(el.get("id"))] = el.get("uuid")   # 改名的节点沿用原来的 UUID
+    m = re.search(r"^[ \t]*<objects>.*?</objects>[ \t]*$", raw, re.S | re.M)
+    old_objects = m.group(0) if m else None
+elif len(sys.argv) != 1:
+    raise SystemExit(__doc__)
+
+
+def pos(kind, item):
+    left, top = old_pos.get((kind, item["id"]), (item["left"], item["top"]))
+    return f'left="{left}" top="{top}"'
+
 
 out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>']
 out.append(
@@ -28,11 +56,11 @@ for n in cfg["nodes"]:
     nets = [i["net"] for i in n["ifaces"]] + ["MGMT"]
     out.append(
         f'      <node id="{n["id"]}" name={q(n["name"])} type="qemu" template="linux" image={q(lab["image"])} '
-        f'console="telnet" cpu="1" cpulimit="1" ram="{n["ram"]}" ethernet="{len(nets)}" '
-        f'uuid="{uuid.uuid5(NS, n["name"])}" firstmac="00:50:00:00:{n["id"]:02x}:00" '
+        f'console="telnet" cpu="{n.get("cpu", 1)}" cpulimit="1" ram="{n["ram"]}" ethernet="{len(nets)}" '
+        f'uuid="{old_uuid.get(n["id"]) or uuid.uuid5(NS, n["name"])}" firstmac="00:50:00:00:{n["id"]:02x}:00" '
         f'qemu_options="-machine type=pc,accel=kvm -vga std -usbdevice tablet -boot order=cd -cpu host" '
         f'qemu_version="2.4.0" qemu_arch="x86_64" qemu_nic="virtio-net-pci" delay="0" '
-        f'icon="Server-2D-Linux-S.svg" config="0" left="{n["left"]}" top="{n["top"]}">'
+        f'icon="Server-2D-Linux-S.svg" config="0" {pos("node", n)}>'
     )
     for i, net in enumerate(nets):
         out.append(f'        <interface id="{i}" name="e{i}" type="ethernet" network_id="{net_id[net]}"/>')
@@ -42,7 +70,7 @@ out.append("    <networks>")
 for n in cfg["networks"]:
     icon = "cloud.png" if n["type"].startswith("pnet") else "lan.png"
     out.append(
-        f'      <network id="{n["id"]}" type="{n["type"]}" name={q(n["name"])} left="{n["left"]}" top="{n["top"]}" '
+        f'      <network id="{n["id"]}" type="{n["type"]}" name={q(n["name"])} {pos("network", n)} '
         f'visibility="1" icon="{icon}"/>'
     )
 out.append("    </networks>")
@@ -68,12 +96,15 @@ for pad in range(16):
         break
 else:
     raise SystemExit("文本对象的编码结果里总是出现 div 或 style")
-out.append("  <objects>")
-out.append("    <textobjects>")
-out.append('      <textobject id="1" name="hide-mgmt-links" type="text">')
-out.append(f"        <data>{data}</data>")
-out.append("      </textobject>")
-out.append("    </textobjects>")
-out.append("  </objects>")
+if old_objects is not None:
+    out.append(old_objects)
+else:
+    out.append("  <objects>")
+    out.append("    <textobjects>")
+    out.append('      <textobject id="1" name="hide-mgmt-links" type="text">')
+    out.append(f"        <data>{data}</data>")
+    out.append("      </textobject>")
+    out.append("    </textobjects>")
+    out.append("  </objects>")
 out.append("</lab>")
 print("\n".join(out))

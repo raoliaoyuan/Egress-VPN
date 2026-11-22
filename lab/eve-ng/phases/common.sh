@@ -5,11 +5,27 @@ FILES="$LAB_DIR/files"
 REPO="$(cd "$LAB_DIR/../.." && pwd)"
 INTRANET_IP=10.200.5.6
 PUBLIC_IP=203.0.113.80
-GATEWAY_VIP=10.1.255.10
+GATEWAY_VIP=10.1.255.10       # 网关单元 1 的服务地址
+GATEWAY_VIP2=10.1.255.30      # 网关单元 2 的服务地址（部署了多单元之后才有）
+EGRESS_NODES=(egress-1 egress-2)   # 两台 Egress 的配置始终相同，按块分片、互为热备
+ACCESS_VIP=10.1.254.101       # 块 1、块 2 的接入地址，平时在 egress-1 上
+ACCESS_VIP3=10.1.254.102      # 块 3 的接入地址，平时在 egress-2 上
 declare -A REAL_IP=([vm-a]=10.1.2.3 [vm-b]=10.1.2.4 [vm-c]=10.1.2.99)
 declare -A INTRA_IP=([vm-a]=100.64.0.7 [vm-b]=100.64.0.8 [vm-c]=100.64.0.99)
 VMS=(vm-a vm-b vm-c)
-GATEWAY_BLOCK=100.64.0.0/22   # 网关单元 1 的内网地址块，所有虚拟机的内网 IP 都在里面
+GATEWAY_BLOCK=100.64.0.0/22   # 块 1 的内网地址块，三台真实虚拟机的内网 IP 都在里面
+# 块 2、块 3 是 vm-farm 模拟的虚拟机：真实地址和内网地址成段对应，第 i 个身份是两边的基地址各加 i。
+BLOCK2_REAL=10.2.0.0/16; BLOCK2_INTRA=100.66.0.0/16
+BLOCK3_REAL=10.3.0.0/16; BLOCK3_INTRA=100.67.0.0/16
+FARM_PER_BLOCK=50000          # 每个模拟的块登记多少个身份（地址偏移 1 到这个数）
+
+# 实验的形态由 state/ 下的标记文件记录：
+#   scale-on：数据面 A 的规模化形态（两个网关单元加共享热备 gw-3），由 80-scale-a.sh 建立；
+#   b-on：    块 3 走数据面 B（地址转换在 Egress 上，网关只转发），由 85-dataplane-b.sh 建立。
+# 20-baseline.sh 和 30-deploy-solution.sh 会清掉这两个标记，回到只有一个单元、gw-1 主用 gw-2 备用的基础形态。
+scale_on() { [ -f "$STATE/scale-on" ]; }
+b_on() { [ -f "$STATE/b-on" ]; }
+gateways() { if scale_on; then echo gw-1 gw-2 gw-3; else echo gw-1 gw-2; fi; }
 SHARED_USER=svc-batch         # 内网服务上所有虚拟机共用的那个账号（静态凭证）
 # 凭证的样子：令牌、静态口令，以及共用账号编码成 Authorization: Basic 之后固定不变的开头
 # （“$SHARED_USER:lab-static-”的 base64）。检查“有没有泄露”时只按样子去找，不把凭证本身发到虚拟机上。
@@ -86,29 +102,58 @@ CONF
 	done
 	if [ -f "$STATE/gateway-on" ]; then
 		echo
-		grep -v '^#' "$REPO/config/vpn-server/gateway-peer.conf" | sed "s|<网关单元1公钥>|$(wgpub gateway)|"
+		if scale_on; then
+			# 多单元：单元 1 承载块 1、块 2；单元 2 承载块 3（块 3 改走数据面 B 之后，它不再属于任何单元）。
+			grep -v '^#' "$REPO/config/vpn-server/gateway-peer.conf" | sed -e "s|<网关单元1公钥>|$(wgpub gateway)|" \
+				-e "s|^AllowedIPs = .*|AllowedIPs = $GATEWAY_BLOCK, $BLOCK2_INTRA|"
+			b_on || printf '\n[Peer]\n# VPN 网关单元 2\nPublicKey = %s\nAllowedIPs = %s\n' "$(wgpub gateway2)" "$BLOCK3_INTRA"
+		else
+			grep -v '^#' "$REPO/config/vpn-server/gateway-peer.conf" | sed "s|<网关单元1公钥>|$(wgpub gateway)|"
+		fi
 	fi
 }
 apply_server_conf() {
 	render_server_conf > "$STATE/wg0.tmp"
 	put vpn-server "$STATE/wg0.tmp" /etc/wireguard/wg0.conf
 	rm -f "$STATE/wg0.tmp"
-	on vpn-server 'chmod 600 /etc/wireguard/wg0.conf
+	# wg syncconf 只更新 peer，不动路由。块 2、块 3 不在 wg0 自己的网段里，它们指向 wg0 的路由要另外维护：
+	# 该走 wg0 的补上，不该走的删掉（块 3 走数据面 B 时，它的路由由 nh-monitor 维护，这里不碰）。
+	local want=""
+	scale_on && [ -f "$STATE/gateway-on" ] && want="$BLOCK2_INTRA"
+	scale_on && [ -f "$STATE/gateway-on" ] && ! b_on && want="$want $BLOCK3_INTRA"
+	on vpn-server "chmod 600 /etc/wireguard/wg0.conf
 if ip link show wg0 >/dev/null 2>&1; then wg syncconf wg0 <(wg-quick strip wg0); else systemctl enable -q --now wg-quick@wg0; fi
-wg show wg0 allowed-ips | awk "{print \"  peer\", substr(\$1,1,8) \"…\", \$2}"'
+for b in $BLOCK2_INTRA $BLOCK3_INTRA; do
+	case ' $want ' in
+	*\" \$b \"*) ip route replace \$b dev wg0 ;;
+	*) ip route show \$b | grep -q 'dev wg0' && ip route del \$b dev wg0 ;;
+	esac
+done
+wg show wg0 allowed-ips | awk '{printf \"  peer %s…\", substr(\$1,1,8); for (i = 2; i <= NF; i++) printf \" %s\", \$i; print \"\"}'"
 }
 
 # ---------- 地址映射（控制面）----------
-# state/mappings 是地址分配表：每行“真实 IP 内网 IP”。push_mappings 把它下发到两台网关。
+# state/mappings 是三台真实虚拟机的地址分配表：每行“真实 IP 内网 IP”。
+# 规模化形态下再加上 state/mappings-farm（vm-farm 模拟的身份，由 80-scale-a.sh 生成）。
+# push_mappings 把它们下发到每台做地址转换的节点：各台网关（数据面 A），以及部署了数据面 B 时的两台 Egress。
+# 每个节点上用 load-map.sh 整表原子替换，中间没有“表是空的”那一刻。
 push_mappings() {
 	touch "$STATE/mappings"
-	local gw
-	for gw in gw-1 gw-2; do
-		put "$gw" "$STATE/mappings" /etc/lab/vm2intra 2>/dev/null || { echo "  $gw 不可达，跳过"; continue; }
-		on "$gw" 'nft flush map ip vpngw vm2intra
-while read -r real intra; do [ -n "$real" ] && nft add element ip vpngw vm2intra "{ $real : $intra }"; done < /etc/lab/vm2intra
-echo "  $(hostname) 的映射表：$(nft list map ip vpngw vm2intra | grep -o "elements = {[^}]*}" || echo 空)"'
+	local node table targets=""
+	cat "$STATE/mappings" > "$STATE/mappings.all"
+	scale_on && [ -f "$STATE/mappings-farm" ] && cat "$STATE/mappings-farm" >> "$STATE/mappings.all"
+	for node in $(gateways); do targets="$targets $node:vpngw"; done
+	if b_on; then for node in "${EGRESS_NODES[@]}"; do targets="$targets $node:egress_b"; done; fi
+	for node in $targets; do
+		table=${node#*:}; node=${node%:*}
+		put "$node" "$STATE/mappings.all" /etc/lab/vm2intra 2>/dev/null || { echo "  $node 不可达，跳过"; continue; }
+		put "$node" "$FILES/load-map.sh" /etc/lab/load-map.sh
+		on "$node" "chmod 755 /etc/lab/load-map.sh; /etc/lab/load-map.sh $table
+n=\$(wc -l < /etc/lab/vm2intra)
+if [ \$n -le 5 ]; then echo \"  \$(hostname) 的映射表：\$(nft list map ip $table vm2intra | grep -o 'elements = {[^}]*}' || echo 空)\"
+else echo \"  \$(hostname) 的映射表：\$n 条\"; fi"
 	done
+	rm -f "$STATE/mappings.all"
 }
 register() { # 虚拟机名
 	grep -q "^${REAL_IP[$1]} " "$STATE/mappings" 2>/dev/null || echo "${REAL_IP[$1]} ${INTRA_IP[$1]}" >> "$STATE/mappings"
@@ -119,7 +164,7 @@ unregister() {
 	sed -i "/^${REAL_IP[$1]} /d" "$STATE/mappings"
 	push_mappings
 	local gw
-	for gw in gw-1 gw-2; do on "$gw" "conntrack -D -s ${REAL_IP[$1]} >/dev/null 2>&1 || true" 2>/dev/null || true; done
+	for gw in $(gateways); do on "$gw" "conntrack -D -s ${REAL_IP[$1]} >/dev/null 2>&1 || true" 2>/dev/null || true; done
 }
 
 # ---------- 虚拟机上的旧隧道 ----------
@@ -158,43 +203,76 @@ svc_table() {
 }
 
 # ---------- Egress ----------
-# egress_files：Egress 上不随阶段变化的文件：服务单元、内核规则、内网服务的 CA、各虚拟机的客户端证书。
+# 两台 Egress 的配置始终相同：egress-1 平时负责块 1、块 2，egress-2 负责块 3，一台故障时另一台接管它的块，
+# 所以每台都要预先有全部块的配置、凭证和证书。下面的函数都同时处理两台。
+
+# egress_files：Egress 上不随阶段变化的文件：服务单元、内核参数、内核规则、内网服务的 CA、各虚拟机的客户端证书。
 egress_files() {
-	local vm
-	put egress "$FILES/envoy.service" /etc/systemd/system/envoy.service
-	put egress "$FILES/egress.nft" /etc/lab/egress.nft.in
-	put egress "$STATE/tls/ca.pem" /etc/lab/intranet-ca.pem
-	for vm in "${VMS[@]}"; do
-		put egress "$STATE/tls/client-$vm.pem" "/etc/lab/client/$vm.pem"
-		put_secret egress "$STATE/tls/client-$vm.key" "/etc/lab/client/$vm.key"
-	done
-	printf '#!/bin/bash\nnft -f /etc/lab/egress.nft\n' > "$STATE/boot.tmp"
-	put egress "$STATE/boot.tmp" /etc/lab/boot.sh
-	put egress "$FILES/lab-boot.service" /etc/systemd/system/lab-boot.service
-	rm -f "$STATE/boot.tmp"
-	on egress '. /etc/lab/ifaces.env
-sed -e "s/@VMIF@/$IF_VM_NET/g" -e "s/@WANIF@/$IF_WAN/g" /etc/lab/egress.nft.in > /etc/lab/egress.nft
-nft -f /etc/lab/egress.nft
-chmod 700 /etc/lab/client
+	local eg vm
+	for eg in "${EGRESS_NODES[@]}"; do
+		put "$eg" "$FILES/envoy.service" /etc/systemd/system/envoy.service
+		put "$eg" "$FILES/egress.nft" /etc/lab/egress.nft.in
+		put "$eg" "$FILES/tune.sh" /etc/lab/tune.sh
+		put "$eg" "$FILES/egress-boot.sh" /etc/lab/boot.sh
+		put "$eg" "$FILES/lab-boot.service" /etc/systemd/system/lab-boot.service
+		put "$eg" "$STATE/tls/ca.pem" /etc/lab/intranet-ca.pem
+		for vm in "${VMS[@]}"; do
+			put "$eg" "$STATE/tls/client-$vm.pem" "/etc/lab/client/$vm.pem"
+			put_secret "$eg" "$STATE/tls/client-$vm.key" "/etc/lab/client/$vm.key"
+		done
+		on "$eg" '. /etc/lab/ifaces.env
+sed -e "s/@VMIF@/$IF_ACC_NET/g" -e "s/@WANIF@/$IF_WAN/g" /etc/lab/egress.nft.in > /etc/lab/egress.nft
+chmod 755 /etc/lab/tune.sh /etc/lab/boot.sh; chmod 700 /etc/lab/client
+/etc/lab/boot.sh
 systemctl daemon-reload; systemctl enable -q envoy.service lab-boot.service'
+	done
+}
+
+# access_holder <接入地址>：现在哪台 Egress 持有这个接入地址。
+access_holder() {
+	local eg
+	for eg in "${EGRESS_NODES[@]}"; do
+		if on "$eg" "ip -4 addr show | grep -q ' $1/'" 2>/dev/null; then echo "$eg"; return; fi
+	done
+	echo 无
+}
+# access_home：等两个接入地址都回到各自的第一顺位（块 1、块 2 在 egress-1，块 3 在 egress-2）。
+# keepalived 配成了抢占，Envoy 起来之后会自己回去，这里只是等。
+access_home() {
+	local i a b
+	for i in $(seq 1 30); do
+		a=$(access_holder "$ACCESS_VIP"); b=$(access_holder "$ACCESS_VIP3")
+		[ "$a" = egress-1 ] && [ "$b" = egress-2 ] && return 0
+		sleep 1
+	done
+	echo "接入地址没有回到第一顺位：$ACCESS_VIP 在 $a，$ACCESS_VIP3 在 $b"
+	return 1
 }
 
 # egress_config <baseline|solution> [给凭证的虚拟机，空格分隔，默认全部] [--unscoped|--redis-inject]
 # 生成 Egress 的 Envoy 配置，在节点上校验通过后替换并重启。配置里有令牌，全程只有 root 能读。
+# 规模化形态下配置里按块选网关单元；块 3 走数据面 B 时再加上数据面 B 的监听器。两台 Egress 先后重启，不同时中断。
 egress_config() {
-	local stage=$1 vms=${2-${VMS[*]}} vm
+	local stage=$1 vms=${2-${VMS[*]}} vm eg
 	local -a args=()
 	for vm in $vms; do args+=(--vm "$vm=${REAL_IP[$vm]}"); done
+	if [ "$stage" = solution ]; then
+		scale_on && args+=(--scale)
+		b_on && args+=(--dataplane-b)
+	fi
 	(umask 077; python3 "$FILES/gen-egress-envoy.py" "$stage" --state "$STATE" "${args[@]}" ${3:-} > "$STATE/envoy.tmp")
-	put_secret egress "$STATE/envoy.tmp" /etc/envoy/envoy.new.yaml
-	rm -f "$STATE/envoy.tmp"
-	on egress 'if ! /usr/local/bin/envoy --mode validate -c /etc/envoy/envoy.new.yaml -l error > /tmp/envoy-validate.log 2>&1; then
+	for eg in egress-2 egress-1; do
+		put_secret "$eg" "$STATE/envoy.tmp" /etc/envoy/envoy.new.yaml
+		on "$eg" 'if ! /usr/local/bin/envoy --mode validate -c /etc/envoy/envoy.new.yaml -l error > /tmp/envoy-validate.log 2>&1; then
 	echo "新配置没有通过校验，保留原配置："; tail -5 /tmp/envoy-validate.log; rm -f /etc/envoy/envoy.new.yaml; exit 1
 fi
 mv /etc/envoy/envoy.new.yaml /etc/envoy/envoy.yaml
 systemctl restart envoy.service
 ports() { ss -ltn | grep -oE ":1500[67] " | sort -u | wc -l; }
 for _ in $(seq 1 20); do [ "$(ports)" = 2 ] && break; sleep 0.5; done
-echo "Egress 的 Envoy：$(systemctl is-active envoy.service)，监听端口 $(ports) 个"
-[ "$(ports)" = 2 ]'
+echo "$(hostname) 的 Envoy：$(systemctl is-active envoy.service)，监听端口 $(ports) 个"
+[ "$(ports)" = 2 ]' || { rm -f "$STATE/envoy.tmp"; return 1; }
+	done
+	rm -f "$STATE/envoy.tmp"
+	access_home
 }

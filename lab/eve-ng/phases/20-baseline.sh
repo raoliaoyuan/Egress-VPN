@@ -4,6 +4,7 @@
 # Egress 透明劫持虚拟机的 TCP，对指定的服务注入凭证，但去往内网的流量已经在虚拟机里被封进隧道，Egress 处理不到。
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
+. "$(dirname "$0")/scale-lib.sh"
 
 say "WireGuard 密钥（在 vpn-server 上生成，取回 state/wg/，不进版本库）"
 mkdir -p "$STATE/wg"; chmod 700 "$STATE/wg"
@@ -22,6 +23,7 @@ say "状态回到现状：三台虚拟机都用旧方式，映射表为空，没
 printf '%s\n' "${VMS[*]}" > "$STATE/legacy"
 : > "$STATE/mappings"
 rm -f "$STATE/gateway-on"
+reset_to_base   # 部署过多单元或数据面 B 的话，先撤掉
 (push_mappings >/dev/null 2>&1) || true   # 网关如果已经部署过，清空它的映射表；没部署过就跳过
 
 say "vpn-server：每台虚拟机一个 /32 的 peer"

@@ -1,0 +1,52 @@
+# VPN 网关：多个单元时的 Envoy 配置（数据面 A 的规模化形态）
+#
+# 和 ../envoy.yaml 的差别只有一处：每个网关单元一个监听器，监听这个单元的服务地址。
+# 每台网关都带全部单元的监听器，所以任何一台都能承载任何单元（共享热备）。
+# 服务地址不在本机时监听器照样要能启动，需要内核参数 net.ipv4.ip_nonlocal_bind=1。
+#
+# 单元和地址块的对应关系不在这里：一条连接属于哪个单元，由它的源地址（虚拟机真实 IP）决定，
+# 走哪条隧道由 wg-unit.conf 里按源地址的策略路由选，见 vpngw.nft 和 wg-unit.conf。
+# 运行要求、标记值的约定和 ../envoy.yaml 相同。
+
+static_resources:
+  listeners:
+  - name: from_egress_unit_1
+    address:
+      socket_address:
+        address: 10.1.255.10      # 单元 1 的服务地址
+        port_value: 15001
+    listener_filters: &filters
+    - name: envoy.filters.listener.proxy_protocol
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
+    - name: envoy.filters.listener.original_src
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.original_src.v3.OriginalSrc
+        mark: 123
+    filter_chains: &chains
+    - filters:
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          stat_prefix: to_intranet
+          cluster: intranet
+  - name: from_egress_unit_2
+    address:
+      socket_address:
+        address: 10.1.255.30      # 单元 2 的服务地址
+        port_value: 15001
+    listener_filters: *filters
+    filter_chains: *chains
+
+  clusters:
+  - name: intranet
+    type: ORIGINAL_DST
+    lb_policy: CLUSTER_PROVIDED
+    connect_timeout: 5s
+    # 熔断阈值必须放宽，原因见 ../envoy.yaml。
+    circuit_breakers:
+      thresholds:
+      - priority: DEFAULT
+        max_connections: 200000
+        max_pending_requests: 200000
+        max_requests: 200000

@@ -1,0 +1,47 @@
+#!/usr/sbin/nft -f
+#
+# 数据面 B：VPN 网关上的规则。网关只转发，不做地址转换，不跟踪这些连接。
+# @SVCIF@ 是面向 Egress 的网卡，wgb 是这台网关自己到 VPN 服务器的隧道（见 gateway-wgb.conf）。
+#
+# 网关上还要：打开转发（net.ipv4.ip_forward=1），以及回程路由
+#   ip route add <走数据面 B 的内网地址块> via <这个块的回程地址>
+# 回程地址由当前负责这个块的 Egress 持有，和接入地址一起漂移。
+# 网关还要让 Egress 知道自己什么时候可以用：实验里是隧道通、转发已打开之后才配上一个“就绪地址”，
+# Egress 只探测这个地址（lab/eve-ng/files/gateway-b-health.sh）。没有这一步，网关刚开机时会丢一小段新连接。
+#
+# 已在 EVE-NG 实验里调通。
+
+table ip gwb
+delete table ip gwb
+
+table ip gwb {
+	# 走数据面 B 的内网地址块
+	set b_intra {
+		type ipv4_addr; flags interval
+	}
+	# 各台 Egress 在这个网段上的网卡地址（MAC）
+	set egress_mac {
+		type ether_addr
+	}
+
+	# 不跟踪。去程和回程可能走不同的网关，跟踪了的话只看到半条连接的那台会把包当成无效的
+	chain raw_pre {
+		type filter hook prerouting priority raw; policy accept;
+		iifname "@SVCIF@" ip saddr @b_intra notrack
+		iifname "wgb" ip daddr @b_intra notrack
+	}
+
+	# 只转发这两个方向，其余一律丢弃：
+	#   Egress 来的、源地址在走数据面 B 的块里、去内网的；内网回来的、目的地址在这些块里的。
+	# 从 Egress 来的包按网卡地址认来源。它是数据面 A 里“15001 端口只接受 Egress 的地址”的对应物；
+	# 同一个二层网段里网卡地址可以伪造，这个网段不可信时要改用隧道（每台 Egress 一个对端）。
+	# 连接的两端是 Egress 和内网服务，中间要过隧道，隧道的 MTU 比普通链路小，
+	# 所以两个方向的 SYN 都要把最大报文段长度压到隧道放得下的大小（隧道 MTU 1420 减 40）。
+	chain relay {
+		type filter hook forward priority filter; policy drop;
+		iifname "@SVCIF@" oifname "wgb" ip saddr @b_intra ip daddr 10.200.0.0/16 ether saddr @egress_mac tcp flags syn tcp option maxseg size set 1380
+		iifname "@SVCIF@" oifname "wgb" ip saddr @b_intra ip daddr 10.200.0.0/16 ether saddr @egress_mac accept
+		iifname "wgb" oifname "@SVCIF@" ip daddr @b_intra tcp flags syn tcp option maxseg size set 1380
+		iifname "wgb" oifname "@SVCIF@" ip daddr @b_intra accept
+	}
+}

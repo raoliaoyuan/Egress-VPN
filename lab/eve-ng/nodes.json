@@ -1,42 +1,44 @@
 {
   "lab": {
-    "name": "Egress-VPN",
-    "file": "/opt/unetlab/labs/Egress-VPN.unl",
-    "image": "linux-egressvpn",
-    "description": "Egress 与 VPN 共存方案的完整复现：旧隧道基线、新方案部署、逐台迁移、主备切换"
+      "name": "Egress-VPN",
+      "file": "/opt/unetlab/labs/Egress-VPN.unl",
+      "image": "linux-egressvpn",
+      "description": "Egress 与 VPN 共存方案的完整复现：旧隧道基线、新方案部署、逐台迁移、主备切换，以及高可用与规模化（分片、多单元、两种数据面）"
   },
   "networks": [
-    {"id": 21, "name": "VM-NET",   "type": "bridge", "cidr": "10.1.2.0/24",    "left": 390, "top": 210},
-    {"id": 22, "name": "SVC-NET",  "type": "bridge", "cidr": "10.1.255.0/24",  "left": 270, "top": 450},
-    {"id": 23, "name": "WAN",      "type": "bridge", "cidr": "203.0.113.0/24", "left": 630, "top": 450},
-    {"id": 24, "name": "INTRANET", "type": "bridge", "cidr": "10.200.5.0/24",  "left": 630, "top": 780},
-    {"id": 25, "name": "MGMT",     "type": "pnet0",  "cidr": "见 local.env 的 MGMT_PREFIX", "left": 960, "top": 450}
+    {"id": 21, "name": "VM-NET", "type": "bridge", "cidr": "10.1.2.0/24", "left": 390, "top": 210},
+    {"id": 22, "name": "SVC-NET", "type": "bridge", "cidr": "10.1.255.0/24", "left": 270, "top": 450},
+    {"id": 23, "name": "WAN", "type": "bridge", "cidr": "203.0.113.0/24", "left": 630, "top": 450},
+    {"id": 24, "name": "INTRANET", "type": "bridge", "cidr": "10.200.5.0/24", "left": 630, "top": 780},
+    {"id": 25, "name": "MGMT", "type": "pnet0", "cidr": "见 local.env 的 MGMT_PREFIX", "left": 960, "top": 450},
+    {"id": 26, "name": "FARM-NET", "type": "bridge", "cidr": "10.1.253.0/24", "left": 133, "top": 180},
+    {"id": 27, "name": "ACC-NET", "type": "bridge", "cidr": "10.1.254.0/24", "left": 255, "top": 290}
   ],
   "nodes": [
-    {"id": 21, "name": "vm-a", "ram": 512, "mgmt_host": 81, "left": 180, "top": 90,
-     "ifaces": [{"net": "VM-NET", "addr": "10.1.2.3/24"}], "gw": "10.1.2.1"},
-    {"id": 22, "name": "vm-b", "ram": 512, "mgmt_host": 82, "left": 390, "top": 90,
-     "ifaces": [{"net": "VM-NET", "addr": "10.1.2.4/24"}], "gw": "10.1.2.1"},
-    {"id": 23, "name": "vm-c", "ram": 512, "mgmt_host": 83, "left": 600, "top": 90,
-     "ifaces": [{"net": "VM-NET", "addr": "10.1.2.99/24"}], "gw": "10.1.2.1"},
-    {"id": 24, "name": "egress", "ram": 1024, "mgmt_host": 84, "left": 390, "top": 330, "forward": true,
-     "ifaces": [{"net": "VM-NET", "addr": "10.1.2.1/24"}, {"net": "SVC-NET", "addr": "10.1.255.20/24"}, {"net": "WAN", "addr": "203.0.113.20/24"}]},
-    {"id": 25, "name": "gw-1", "ram": 1024, "mgmt_host": 85, "left": 180, "top": 570,
-     "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.11/24"}, {"net": "WAN", "addr": "203.0.113.11/24"}]},
-    {"id": 26, "name": "gw-2", "ram": 1024, "mgmt_host": 86, "left": 390, "top": 570,
-     "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.12/24"}, {"net": "WAN", "addr": "203.0.113.12/24"}]},
-    {"id": 27, "name": "vpn-server", "ram": 512, "mgmt_host": 87, "left": 630, "top": 660, "forward": true,
-     "ifaces": [{"net": "WAN", "addr": "203.0.113.1/24"}, {"net": "INTRANET", "addr": "10.200.5.1/24"}]},
-    {"id": 28, "name": "intranet-svc", "ram": 512, "mgmt_host": 88, "left": 630, "top": 900,
-     "ifaces": [{"net": "INTRANET", "addr": "10.200.5.6/24"}], "gw": "10.200.5.1"},
-    {"id": 29, "name": "public-web", "ram": 512, "mgmt_host": 89, "left": 840, "top": 330,
-     "ifaces": [{"net": "WAN", "addr": "203.0.113.80/24"}]}
+    {"id": 21, "name": "vm-a", "cpu": 1, "ram": 512, "mgmt_host": 81, "left": 180, "top": 90, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.3/24"}], "gw": "10.1.2.1"},
+    {"id": 22, "name": "vm-b", "cpu": 1, "ram": 512, "mgmt_host": 82, "left": 390, "top": 90, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.4/24"}], "gw": "10.1.2.1"},
+    {"id": 23, "name": "vm-c", "cpu": 1, "ram": 512, "mgmt_host": 83, "left": 600, "top": 90, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.99/24"}], "gw": "10.1.2.1"},
+    {"id": 24, "name": "egress-1", "cpu": 2, "ram": 2048, "mgmt_host": 84, "left": 390, "top": 330, "forward": true, "ifaces": [{"net": "ACC-NET", "addr": "10.1.254.20/24"}, {"net": "SVC-NET", "addr": "10.1.255.20/24"}, {"net": "WAN", "addr": "203.0.113.20/24"}]},
+    {"id": 25, "name": "gw-1", "cpu": 2, "ram": 2048, "mgmt_host": 85, "left": 180, "top": 570, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.11/24"}, {"net": "WAN", "addr": "203.0.113.11/24"}]},
+    {"id": 26, "name": "gw-2", "cpu": 2, "ram": 2048, "mgmt_host": 86, "left": 390, "top": 570, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.12/24"}, {"net": "WAN", "addr": "203.0.113.12/24"}]},
+    {"id": 27, "name": "vpn-server", "cpu": 2, "ram": 1024, "mgmt_host": 87, "left": 630, "top": 660, "forward": true, "ifaces": [{"net": "WAN", "addr": "203.0.113.1/24"}, {"net": "INTRANET", "addr": "10.200.5.1/24"}]},
+    {"id": 28, "name": "intranet-svc", "cpu": 2, "ram": 1024, "mgmt_host": 88, "left": 630, "top": 900, "ifaces": [{"net": "INTRANET", "addr": "10.200.5.6/24"}], "gw": "10.200.5.1"},
+    {"id": 29, "name": "public-web", "cpu": 1, "ram": 512, "mgmt_host": 89, "left": 840, "top": 330, "ifaces": [{"net": "WAN", "addr": "203.0.113.80/24"}]},
+    {"id": 30, "name": "vm-farm", "cpu": 3, "ram": 2048, "mgmt_host": 90, "left": 130, "top": 42, "ifaces": [{"net": "FARM-NET", "addr": "10.1.253.2/24"}], "gw": "10.1.253.1"},
+    {"id": 31, "name": "rtr-acc", "cpu": 2, "ram": 512, "mgmt_host": 91, "left": 255, "top": 180, "forward": true, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.1/24"}, {"net": "FARM-NET", "addr": "10.1.253.1/24"}, {"net": "ACC-NET", "addr": "10.1.254.1/24"}]},
+    {"id": 32, "name": "egress-2", "cpu": 2, "ram": 2048, "mgmt_host": 92, "left": 555, "top": 282, "forward": true, "ifaces": [{"net": "ACC-NET", "addr": "10.1.254.21/24"}, {"net": "SVC-NET", "addr": "10.1.255.21/24"}, {"net": "WAN", "addr": "203.0.113.21/24"}]},
+    {"id": 33, "name": "gw-3", "cpu": 2, "ram": 2048, "mgmt_host": 93, "left": 595, "top": 519, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.13/24"}, {"net": "WAN", "addr": "203.0.113.13/24"}]}
   ],
   "hosts": {
-    "egress": "10.1.2.1",
-    "gateway-vip": "10.1.255.10",
-    "vpn-server": "203.0.113.1",
-    "intranet-svc": "10.200.5.6",
-    "public-web": "203.0.113.80"
+      "rtr-acc": "10.1.2.1",
+      "egress-1": "10.1.254.20",
+      "egress-2": "10.1.254.21",
+      "access-blocks-1-2": "10.1.254.101",
+      "access-block-3": "10.1.254.102",
+      "gateway-vip": "10.1.255.10",
+      "gateway-vip-2": "10.1.255.30",
+      "vpn-server": "203.0.113.1",
+      "intranet-svc": "10.200.5.6",
+      "public-web": "203.0.113.80"
   }
 }

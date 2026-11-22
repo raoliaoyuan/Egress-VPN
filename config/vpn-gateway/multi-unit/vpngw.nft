@@ -1,0 +1,40 @@
+#!/usr/sbin/nft -f
+#
+# VPN 网关：多个单元时的地址映射和回程标记（数据面 A 的规模化形态）。
+#
+# 和 ../vpngw.nft 的差别：每个单元一条隧道（单元 1 是 wg0，单元 2 是 wg1），
+# 每条隧道只放行这个单元自己的地址块。映射表仍然只有一张，每台网关都带全量。
+# 一台网关可以同时承载多个单元（共享热备接管时），所以规则按隧道分开写。
+#
+# 加载和维护映射表的方法同 ../vpngw.nft。记录多的时候不要逐条 add，
+# 把“清空再整表填入”写进一个文件用 nft -f 提交，它是一个事务，中间没有表是空的那一刻。
+
+table ip vpngw {
+	# 虚拟机真实 IP : 该虚拟机的内网 IP
+	map vm2intra {
+		type ipv4_addr : ipv4_addr
+	}
+
+	chain out_mark {
+		type filter hook output priority mangle; policy accept;
+		meta mark 123 ct mark set 123
+	}
+
+	chain in_mark {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname { "wg0", "wg1" } ct mark 123 meta mark set 123
+	}
+
+	chain snat_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname { "wg0", "wg1" } snat to ip saddr map @vm2intra
+	}
+
+	# 源地址转换之后再检查一次：每条隧道只许出这个单元的地址块。
+	# 没登记的虚拟机、被送错单元的连接都在这里丢弃。
+	chain guard_out {
+		type filter hook postrouting priority 110; policy accept;
+		oifname "wg0" ip saddr != { 100.64.0.0/22, 100.66.0.0/16 } drop
+		oifname "wg1" ip saddr != 100.67.0.0/16 drop
+	}
+}

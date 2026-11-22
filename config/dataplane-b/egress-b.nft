@@ -1,0 +1,77 @@
+#!/usr/sbin/nft -f
+#
+# 数据面 B：Egress 节点上的内核规则。地址转换从 VPN 网关搬到这里。
+# @ACCIF@ 是面向虚拟机一侧的网卡，@SVCIF@ 是面向网关一侧的网卡。
+#
+# 配套的东西：
+#   - Envoy 的两个监听器（15016 四层、15017 七层），上游连接用虚拟机的真实 IP 作源地址并打标记 123；
+#   - 策略路由：ip rule add iif <网关侧网卡> fwmark 123 lookup 100
+#               ip route add local 0.0.0.0/0 dev lo table 100
+#   - 去内网的路由指向各台网关（多条等价路由）。
+# 标记值 123 和路由表 100 要与它们保持一致。
+#
+# 已在 EVE-NG 实验里调通，Egress 是参考实现；真实的 Egress 没有验证过。
+
+table ip egress_b
+delete table ip egress_b
+
+table ip egress_b {
+	# 虚拟机真实 IP : 内网 IP，由控制面维护，每台 Egress 都带全量
+	map vm2intra {
+		type ipv4_addr : ipv4_addr
+	}
+
+	# 走数据面 B 的块：虚拟机真实网段，以及对应的内网地址块
+	set b_real {
+		type ipv4_addr; flags interval
+	}
+	set b_intra {
+		type ipv4_addr; flags interval
+	}
+
+	# 上游一侧的连接放进单独的连接跟踪分区（1），虚拟机一侧留在默认分区（0）。
+	# 原因：Envoy 的上游连接和虚拟机自己那条连接，源地址、目的地址、目的端口都一样，
+	# 源端口由本机内核另选，碰巧选到和虚拟机相同的端口时，两条连接在连接跟踪里是同一个五元组。
+	# 不分区的话，上游连接的包会被当成虚拟机那条连接的包，连不出去。
+	# 不能反过来把虚拟机一侧放进分区：透明劫持靠 SO_ORIGINAL_DST 取回原来的目的地址，
+	# 内核只在默认分区里找这条记录，虚拟机一侧换了分区，Envoy 就取不到目的地址，所有连接都被重置。
+	# 两个方向都要标：本机发出的带标记 123 的包，和从网关一侧回来、目的地址在走数据面 B 的内网地址块里的包。
+	chain zone_out {
+		type filter hook output priority raw; policy accept;
+		meta mark 123 ct zone set 1
+	}
+	chain zone_in {
+		type filter hook prerouting priority raw; policy accept;
+		iifname "@SVCIF@" ip daddr @b_intra ct zone set 1
+	}
+
+	# 走数据面 B 的块去往内网的连接，交给数据面 B 的监听器。优先级比 Egress 原有的重定向规则高一级，先匹配。
+	# 七层处理的端口要和 Egress 原有的规则一致。
+	chain intercept_b {
+		type nat hook prerouting priority dstnat - 1; policy accept;
+		iifname "@ACCIF@" ip saddr @b_real ip daddr 10.200.0.0/16 tcp dport { 80, 8081, 8090, 8443, 9443 } redirect to :15017
+		iifname "@ACCIF@" ip saddr @b_real ip daddr 10.200.0.0/16 meta l4proto tcp redirect to :15016
+	}
+
+	# Envoy 以虚拟机地址发起的上游连接带标记 123，记到连接上；回程包再把标记打回去
+	chain out_mark {
+		type filter hook output priority mangle; policy accept;
+		meta mark 123 ct mark set 123
+	}
+	chain in_mark {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname "@SVCIF@" ct mark 123 meta mark set 123
+	}
+
+	# 出网关侧网卡之前，把源地址从虚拟机真实 IP 换成内网 IP
+	chain snat_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "@SVCIF@" meta mark 123 snat to ip saddr map @vm2intra
+	}
+
+	# 转换之后再检查一次：源地址不在走数据面 B 的内网地址块里的包不许出去。没登记的虚拟机在这里被丢弃
+	chain guard_out {
+		type filter hook postrouting priority 110; policy accept;
+		oifname "@SVCIF@" meta mark 123 ip saddr != @b_intra drop
+	}
+}

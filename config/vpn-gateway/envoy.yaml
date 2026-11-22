@@ -41,3 +41,12 @@ static_resources:
     type: ORIGINAL_DST
     lb_policy: CLUSTER_PROVIDED
     connect_timeout: 5s
+    # 必须放宽熔断阈值。Envoy 默认每个上游集群最多 1024 条连接；
+    # 网关上的连接数是“活跃连接数 + 请求速率 × Egress 上游的空闲超时”，默认值很快就不够。
+    # 超过之后新连接一建立就被关掉，Egress 一侧表现为 503。数值按容量规划定，这里是实验用的值。
+    circuit_breakers:
+      thresholds:
+      - priority: DEFAULT
+        max_connections: 200000
+        max_pending_requests: 200000
+        max_requests: 200000

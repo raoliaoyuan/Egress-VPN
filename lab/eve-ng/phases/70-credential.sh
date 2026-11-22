@@ -66,7 +66,7 @@ say "K 虚拟机的磁盘和网卡上找不到凭证"
 secret_hashes=$(sha256sum "$STATE"/tls/*.key | cut -d' ' -f1)
 same_keys() { awk '$1 == "key" {print $2}' | grep -cFx -f <(echo "$secret_hashes") || true; }
 # 对照：同样的扫描在 Egress 上应当找得到，说明这个扫描方法是有效的。
-scan=$(scan_fs egress)
+scan=$(scan_fs egress-1)
 r="$(echo "$scan" | grep -c '^token ' || true) $(echo "$scan" | same_keys)"
 if [ "${r% *}" -gt 0 ] && [ "${r#* }" -gt 0 ]; then
 	echo "对照成立：K0 同样的扫描在 Egress 上找到了含令牌的文件 ${r% *} 个、实验私钥 ${r#* } 个"
@@ -97,11 +97,11 @@ done
 
 say "L 从虚拟机够不到 Egress 上的凭证"
 check "L1 Egress 的配置里没有管理接口，Envoy 只监听这两个端口" "0 15006 15007" \
-	"$(on egress "echo \$(grep -c '^admin:' /etc/envoy/envoy.yaml || true) \$(ss -ltnp | grep envoy | awk '{print \$4}' | sed 's/.*://' | sort -un | tr '\n' ' ')" | sed 's/ $//')"
-check "L2 含凭证的配置和客户端私钥的权限、属主" "600 root" "$(on egress "stat -c '%a %U' /etc/envoy/envoy.yaml /etc/lab/client/*.key | sort -u | tr '\n' ' '" | sed 's/ $//')"
+	"$(on egress-1 "echo \$(grep -c '^admin:' /etc/envoy/envoy.yaml || true) \$(ss -ltnp | grep envoy | awk '{print \$4}' | sed 's/.*://' | sort -un | tr '\n' ' ')" | sed 's/ $//')"
+check "L2 含凭证的配置和客户端私钥的权限、属主" "600 root" "$(on egress-1 "stat -c '%a %U' /etc/envoy/envoy.yaml /etc/lab/client/*.key | sort -u | tr '\n' ' '" | sed 's/ $//')"
 try_ssh="ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
-check "L3 vm-a 经业务网登录 Egress" 被拒绝 "$(on vm-a "$try_ssh lab@10.1.2.1 true >/dev/null 2>&1 && echo 登录成功 || echo 被拒绝")"
-check "L4 vm-a 经管理网登录 Egress" 被拒绝 "$(on vm-a "$try_ssh lab@$(node_ip egress) true >/dev/null 2>&1 && echo 登录成功 || echo 被拒绝")"
+check "L3 vm-a 经业务网登录 Egress" 被拒绝 "$(on vm-a "$try_ssh lab@10.1.254.20 true >/dev/null 2>&1 && echo 登录成功 || echo 被拒绝")"
+check "L4 vm-a 经管理网登录 Egress" 被拒绝 "$(on vm-a "$try_ssh lab@$(node_ip egress-1) true >/dev/null 2>&1 && echo 登录成功 || echo 被拒绝")"
 
 say "M 在 Egress 上摘掉 vm-c 的凭证"
 egress_config solution "vm-a vm-b" >/dev/null

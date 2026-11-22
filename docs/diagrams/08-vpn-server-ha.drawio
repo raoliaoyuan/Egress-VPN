@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="08-vpn-server-ha" name="VPN 服务器多台同时工作">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="g0" value="&lt;b&gt;gw-1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;两个隧道接口：&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;wg-s1、wg-s2&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="30" y="40" width="190" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="g1" value="&lt;b&gt;gw-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;两个隧道接口：&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;wg-s1、wg-s2&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="190" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="g2" value="&lt;b&gt;gw-3&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;两个隧道接口：&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;wg-s1、wg-s2&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="450" y="40" width="190" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="s1" value="&lt;b&gt;vpn-server-1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;每台网关一个隧道接口：&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;wg-g1、wg-g2、wg-g3&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;AllowedIPs = 该网关可承载的块&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="80" y="250" width="250" height="86" as="geometry"/>
+        </mxCell>
+        <mxCell id="s2" value="&lt;b&gt;vpn-server-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;每台网关一个隧道接口：&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;wg-g1、wg-g2、wg-g3&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;AllowedIPs = 该网关可承载的块&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="380" y="250" width="250" height="86" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto1" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g0" target="s1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto2" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g1" target="s1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto3" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g2" target="s1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto4" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g0" target="s2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto5" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g1" target="s2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto6" value="" style="html=1;rounded=0;strokeColor=#9673a6;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g2" target="s2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rc" value="&lt;b&gt;rtr-core（内网核心）&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;每个地址块有两条等价路由&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="205" y="440" width="300" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto7" value="BGP 加 BFD" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="s1" target="rc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto8" value="BGP 加 BFD" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="s2" target="rc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="sv" value="&lt;b&gt;内网服务&lt;/b&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="255" y="570" width="200" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto9" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="rc" target="sv">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto10" value="紫色的每条线：一条 WireGuard 隧道，&lt;br&gt;隧道里跑一个 BGP 会话，用 BFD 探活。&lt;br&gt;六条隧道一直建着，不随故障启停。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="690" y="40" width="280" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto11" value="网关通告：它当前负责的地址块。&lt;br&gt;服务器通告：内网网段。&lt;br&gt;谁通告，回程就走谁。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="690" y="130" width="280" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto12" value="同一个地址块可以写进不同接口的&lt;br&gt;AllowedIPs；走哪个接口由路由决定。&lt;br&gt;来源检查仍然有效：从 wg-g1 进来的包，&lt;br&gt;源地址必须在 gw-1 的 AllowedIPs 里。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="690" y="250" width="280" height="86" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto13" value="一台服务器故障：BFD 约 1 秒发现（待实测），&lt;br&gt;去程和回程都改走另一台。&lt;br&gt;隧道早已建好，不用等握手；&lt;br&gt;服务器不记连接，已有连接不中断。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="690" y="440" width="280" height="96" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

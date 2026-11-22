@@ -1,0 +1,89 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="01-current-spof" name="现状：九个节点和其中的单点">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="vm-a" value="&lt;b&gt;vm-a&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;10.1.2.3&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="vm-b" value="&lt;b&gt;vm-b&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;10.1.2.4&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="190" y="30" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="vm-c" value="&lt;b&gt;vm-c&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;10.1.2.99&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="340" y="30" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="egress" value="&lt;b&gt;egress&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;透明劫持，注入凭证&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;同时是虚拟机的默认网关&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="140" width="290" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto1" value="单点" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#b85450;strokeColor=#b85450;fontSize=11;fontColor=#ffffff;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="130" width="44" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="web" value="&lt;b&gt;public-web&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;模拟公网站点&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="500" y="140" width="120" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="gw1" value="&lt;b&gt;gw-1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;主用：持有隧道和服务地址&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="60" y="270" width="180" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="gw2" value="&lt;b&gt;gw-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;备用：隧道不启动&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="310" y="270" width="170" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto2" value="单活" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#b85450;strokeColor=#b85450;fontSize=11;fontColor=#ffffff;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="196" y="260" width="44" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="vpn" value="&lt;b&gt;vpn-server&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;WireGuard 服务端&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;网关是它的一个 /22 对端&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="400" width="290" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto3" value="单点" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#b85450;strokeColor=#b85450;fontSize=11;fontColor=#ffffff;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="390" width="44" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc" value="&lt;b&gt;intranet-svc&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;内网服务 10.200.5.6&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="530" width="290" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="ops" value="&lt;b&gt;操作机脚本&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;经 SSH 逐台下发&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="500" y="400" width="120" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto4" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="vm-a" target="egress">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto5" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="vm-b" target="egress">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto6" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="vm-c" target="egress">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto7" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="egress" target="web">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto8" value="PROXY 协议" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=0.14;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="egress" target="gw1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto9" value="VRRP" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;startArrow=block;startFill=1;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gw1" target="gw2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto10" value="一条隧道" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.14;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="gw1" target="vpn">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto11" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="vpn" target="svc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto12" value="接入：所有虚拟机指向同一台 Egress。&lt;br&gt;源地址防伪造没有验证过。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="30" width="310" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto13" value="Egress：单点。每台虚拟机每个端口一条过滤链，&lt;br&gt;3 台虚拟机 35 条；改配置要重启 Envoy。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="140" width="310" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto14" value="网关：同一时刻只有一台工作，吞吐不能叠加。&lt;br&gt;切换时连接全断，实测 1.4 到 3.9 秒恢复。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="270" width="310" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto15" value="VPN 服务器：单点，&lt;br&gt;也是全部内网流量的吞吐上限。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="400" width="310" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto16" value="互联网出口：单出口地址，&lt;br&gt;非 TCP 流量不经七层控制直接转发。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="530" width="310" height="50" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

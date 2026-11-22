@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="13-roadmap" name="实验改造的六期">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p0" value="&lt;b&gt;第 0 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;基线与工具&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;装压测工具和路由软件&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;修掉已知缺口&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;测现有链路的基线&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v0" value="验证：&lt;br&gt;吞吐、建连速率、&lt;br&gt;延迟的基线数字" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="20" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="p1" value="&lt;b&gt;第 1 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;分片与多单元&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;加 rtr-acc、egress-2、&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;gw-3、vm-farm&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;两个单元加共享热备&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="182" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v1" value="验证：&lt;br&gt;故障只影响本块&lt;br&gt;十万条映射的加载" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="182" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto1" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="p0" target="p1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p2" value="&lt;b&gt;第 2 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;VPN 服务器双活&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;加 vpn-server-2、rtr-core&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;每条邻接一个隧道接口&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;BGP 加 BFD&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="344" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v2" value="验证：&lt;br&gt;服务器断电后&lt;br&gt;已有连接是否存活" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="344" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto2" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p3" value="&lt;b&gt;第 3 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;数据面 B 并排&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;地址转换搬到 Egress&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;网关无状态多活&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;同一套测试各跑一遍&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="506" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v3" value="验证：&lt;br&gt;网关断电时连接存活&lt;br&gt;吞吐和 CPU 对比 A" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="506" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto3" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p4" value="&lt;b&gt;第 4 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;控制面与凭证&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;加 ctrl，配置原子下发&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;按身份查凭证&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;逐台阻断&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="668" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v4" value="验证：&lt;br&gt;控制面停掉后的行为&lt;br&gt;阻断几秒内生效" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="668" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto4" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p5" value="&lt;b&gt;第 5 期&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;互联网出口&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;加 corp-exit&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;默认经企业出口&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;非 TCP 默认拒绝、审计&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="830" y="20" width="148" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="v5" value="验证：&lt;br&gt;企业出口认得每一台&lt;br&gt;不通时不改成直出" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="830" y="150" width="148" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto5" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto6" value="蓝色的三期是高可用和水平扩展的主体。第 0、1、3 期已在实验里做完（没有装路由软件）；第 2 期只做了 B 必需的最小部分；第 4、5 期没有做。&lt;br&gt;2026-11-22 选定的两项凭证方向（身份声明、数据库的接入代理）归到第 4 期，什么时候做还没有定。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;fontColor=#333333;align=center;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="20" y="230" width="958" height="58" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

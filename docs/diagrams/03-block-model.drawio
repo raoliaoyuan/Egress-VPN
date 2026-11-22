@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="03-block-model" name="地址块：调度和故障的最小单位">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="auto1" value="虚拟机的真实网段" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=12;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="20" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto2" value="所属的 Egress" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=12;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="20" width="170" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto3" value="所属的网关单元（数据面 A）" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=12;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="20" width="170" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto4" value="内网地址块" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=12;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="20" width="170" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto5" value="块 1" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=13;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="64" width="70" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="r0" value="&lt;b&gt;10.1.2.0/24&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;vm-a、vm-b、vm-c&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="64" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="i0" value="&lt;b&gt;100.64.0.0/22&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;虚拟机在内网的地址&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="800" y="64" width="170" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto6" value="块 2" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=13;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="154" width="70" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="r1" value="&lt;b&gt;10.2.0.0/16&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;vm-farm 模拟的身份&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="154" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="i1" value="&lt;b&gt;100.66.0.0/16&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;虚拟机在内网的地址&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="800" y="154" width="170" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto7" value="块 3" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=13;fontColor=#333333;strokeColor=none;fillColor=none;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="244" width="70" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="r2" value="&lt;b&gt;10.3.0.0/16&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;vm-farm 模拟的身份&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="110" y="244" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="i2" value="&lt;b&gt;100.67.0.0/16&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;虚拟机在内网的地址&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="800" y="244" width="170" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="&lt;b&gt;egress-1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;负责块 1、块 2&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;热备：egress-2&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="360" y="64" width="170" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="&lt;b&gt;egress-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;负责块 3&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;热备：egress-1&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="360" y="244" width="170" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="u1" value="&lt;b&gt;单元 1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;主用 gw-1&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;热备 gw-3&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="580" y="64" width="170" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="u2" value="&lt;b&gt;单元 2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;主用 gw-2，热备 gw-3&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="580" y="244" width="170" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto8" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" edge="1" parent="1" source="r0" target="e1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto9" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="1" source="r1" target="e1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto10" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="r2" target="e2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto11" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="e1" target="u1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto12" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="e2" target="u2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto13" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="u1" target="i0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto14" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="u1" target="i1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto15" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="u2" target="i2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto16" value="扩容：加新的地址块，新虚拟机落到新块上，已有的块不动。&lt;br&gt;故障：整块改归属（换一台 Egress 或网关），&lt;br&gt;块里每台虚拟机的内网 IP 不变。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="110" y="340" width="420" height="84" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto17" value="数据面 B 下网关不分单元：&lt;br&gt;所有网关同时承载所有块，这一列只剩“网关池”。&lt;br&gt;实验用三个大块模拟大量身份，生产的块要小得多。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="580" y="340" width="390" height="84" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,264 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram id="12-lab-topology" name="实验环境的目标拓扑：十七个节点">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="vm-a" value="&lt;b&gt;vm-a&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;.3&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto1" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="90" y="70" as="sourcePoint"/>
+            <mxPoint x="90" y="100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="vm-b" value="&lt;b&gt;vm-b&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;.4&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="155" y="20" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto2" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="205" y="70" as="sourcePoint"/>
+            <mxPoint x="205" y="100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="vm-c" value="&lt;b&gt;vm-c&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;.99&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="270" y="20" width="100" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto3" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="70" as="sourcePoint"/>
+            <mxPoint x="320" y="100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="farm" value="&lt;b&gt;vm-farm&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;模拟 10.2.0.0/16、10.3.0.0/16&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="440" y="20" width="220" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto4" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="70" as="sourcePoint"/>
+            <mxPoint x="550" y="100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1" value="VM-NET　10.1.2.0/24" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="330" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n2" value="FARM-NET　10.1.253.0/24" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="440" y="100" width="220" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="racc" value="&lt;b&gt;rtr-acc&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;按块引流、校验源地址　各网段的 .1&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="250" y="160" width="300" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto5" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="124" as="sourcePoint"/>
+            <mxPoint x="300" y="160" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto6" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="124" as="sourcePoint"/>
+            <mxPoint x="500" y="160" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto7" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="400" y="216" as="sourcePoint"/>
+            <mxPoint x="400" y="250" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n3" value="ACC-NET　10.1.254.0/24　　接入地址 .101（块 1、2）、.102（块 3）" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="140" y="250" width="520" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="&lt;b&gt;egress-1（现在的 egress）&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;ACC .11　SVC .20　WAN .20&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="140" y="310" width="230" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="&lt;b&gt;egress-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;ACC .12　SVC .21　WAN .21&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="430" y="310" width="230" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto8" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="255" y="274" as="sourcePoint"/>
+            <mxPoint x="255" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto9" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="545" y="274" as="sourcePoint"/>
+            <mxPoint x="545" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto10" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="255" y="366" as="sourcePoint"/>
+            <mxPoint x="255" y="400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto11" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="545" y="366" as="sourcePoint"/>
+            <mxPoint x="545" y="400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n4" value="SVC-NET　10.1.255.0/24　　单元的服务地址 .10（单元 1）、.30（单元 2）" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="60" y="400" width="600" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="g1" value="&lt;b&gt;gw-1&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;单元 1　SVC .11　WAN .11&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="60" y="460" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="g2" value="&lt;b&gt;gw-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;单元 2　SVC .12　WAN .12&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="270" y="460" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="g3" value="&lt;b&gt;gw-3&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;热备　SVC .13　WAN .13&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="480" y="460" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto12" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="424" as="sourcePoint"/>
+            <mxPoint x="150" y="460" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto13" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="516" as="sourcePoint"/>
+            <mxPoint x="150" y="550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto14" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="424" as="sourcePoint"/>
+            <mxPoint x="360" y="460" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto15" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="516" as="sourcePoint"/>
+            <mxPoint x="360" y="550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto16" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="570" y="424" as="sourcePoint"/>
+            <mxPoint x="570" y="460" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto17" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="570" y="516" as="sourcePoint"/>
+            <mxPoint x="570" y="550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n5" value="WAN　203.0.113.0/24　　承载网，同时模拟公网；Egress 的出口地址池 .32/28、.48/28" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="60" y="550" width="910" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto18" value="两台 Egress 的公网出口" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" x="0.1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="338"/>
+            </Array>
+            <mxPoint x="660" y="338" as="sourcePoint"/>
+            <mxPoint x="700" y="550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="s1" value="&lt;b&gt;vpn-server-1（现在的 vpn-server）&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;WAN .1　CORE .1&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="140" y="610" width="230" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="s2" value="&lt;b&gt;vpn-server-2&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;WAN .2　CORE .2&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="430" y="610" width="230" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="web" value="&lt;b&gt;public-web&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;WAN .80&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="790" y="610" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto19" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="255" y="574" as="sourcePoint"/>
+            <mxPoint x="255" y="610" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto20" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="255" y="666" as="sourcePoint"/>
+            <mxPoint x="255" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto21" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="545" y="574" as="sourcePoint"/>
+            <mxPoint x="545" y="610" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto22" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="545" y="666" as="sourcePoint"/>
+            <mxPoint x="545" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto23" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="880" y="574" as="sourcePoint"/>
+            <mxPoint x="880" y="610" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n6" value="CORE-NET　10.200.0.0/24" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="140" y="700" width="830" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="corp" value="&lt;b&gt;corp-exit&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;企业互联网出口　CORE .253　WAN .253&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="790" y="760" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto24" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="880" y="724" as="sourcePoint"/>
+            <mxPoint x="880" y="760" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto25" value="去公网" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" x="0.2" as="geometry">
+            <Array as="points">
+              <mxPoint x="990" y="788"/>
+              <mxPoint x="990" y="562"/>
+            </Array>
+            <mxPoint x="970" y="788" as="sourcePoint"/>
+            <mxPoint x="970" y="562" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rc" value="&lt;b&gt;rtr-core&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;内网核心　CORE .254　INTRANET .1&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="250" y="760" width="300" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto26" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="400" y="724" as="sourcePoint"/>
+            <mxPoint x="400" y="760" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto27" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="400" y="816" as="sourcePoint"/>
+            <mxPoint x="400" y="850" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n7" value="INTRANET　10.200.5.0/24" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="250" y="850" width="300" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc" value="&lt;b&gt;intranet-svc&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;.6&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="300" y="910" width="200" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto28" value="" style="html=1;rounded=0;strokeColor=#555555;fontSize=11;fontColor=#333333;labelBackgroundColor=#ffffff;endArrow=none;endFill=1;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="400" y="874" as="sourcePoint"/>
+            <mxPoint x="400" y="910" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ctrl" value="&lt;b&gt;ctrl&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#444444&quot;&gt;控制面、观测　走管理网&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="790" y="310" width="180" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto29" value="蓝：已有的九个节点&lt;br&gt;绿：新增的八个节点&lt;br&gt;灰色横条：网段&lt;br&gt;每个节点另有一块网卡&lt;br&gt;接管理网，图里没画" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="20" width="180" height="104" as="geometry"/>
+        </mxCell>
+        <mxCell id="auto30" value="rtr-acc 和 rtr-core 在实验里&lt;br&gt;各只有一台，代表生产里&lt;br&gt;已经冗余的网络设备，&lt;br&gt;它们本身的高可用&lt;br&gt;不在验证范围内。" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#333333;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="400" width="180" height="116" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

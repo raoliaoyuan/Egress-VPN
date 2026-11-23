@@ -3,6 +3,9 @@ ALL_GATEWAYS=(gw-1 gw-2 gw-3)
 RETURN_VIP3=10.1.255.202      # 块 3 的回程地址（SVC-NET 上），和块 3 的接入地址一起漂移
 declare -A SVC_IP=([gw-1]=10.1.255.11 [gw-2]=10.1.255.12 [gw-3]=10.1.255.13)
 declare -A GW_NUM=([gw-1]=1 [gw-2]=2 [gw-3]=3)
+# 每个单元在自己的地址块里留一个探测地址（不分配给虚拟机），隧道健康检查用它做源地址；探测目标是 VPN 服务器在内网一侧的地址。
+declare -A UNIT_PROBE=([1]=100.64.3.253 [2]=100.67.255.253)
+PROBE_TARGET=10.200.5.1
 declare -A READY_IP=([gw-1]=10.1.255.111 [gw-2]=10.1.255.112 [gw-3]=10.1.255.113)   # 数据面 B 里网关的就绪地址
 
 # gen_wg_keys <名字...>：state/wg/ 下没有的密钥对就生成（在 vpn-server 上生成后取回）。
@@ -44,6 +47,11 @@ unit_release() {
 # 只做清理，gw-1、gw-2 的基础配置由 30-deploy-solution.sh 重新下发。节点不可达的忽略。
 reset_to_base() {
 	local n
+	# 多台 VPN 服务器的形态叠在规模化形态之上，先撤掉它（函数在 ms-lib.sh 里）
+	if [ -f "$STATE/ms-on" ]; then
+		declare -F reset_ms >/dev/null || . "$(dirname "${BASH_SOURCE[0]}")/ms-lib.sh"
+		reset_ms
+	fi
 	rm -f "$STATE/scale-on" "$STATE/b-on"
 	for n in "${EGRESS_NODES[@]}"; do
 		on "$n" '. /etc/lab/ifaces.env
@@ -79,7 +87,7 @@ render_unit_conf() {
 	1) key=gateway; table=201; n1=10.1.2.0/24; n2=$BLOCK2_REAL ;;
 	2) key=gateway2; table=202; n1=$BLOCK3_REAL; n2="" ;;
 	esac
-	sed -e "s|<本单元私钥>|$(wgkey $key)|" -e "s|<本单元路由表>|$table|g" \
+	sed -e "s|<本单元私钥>|$(wgkey $key)|" -e "s|<本单元路由表>|$table|g" -e "s|<本单元探测地址>|${UNIT_PROBE[$1]}|g" \
 		-e "s|<VPN服务器公钥>|$(wgpub server)|" -e "s|<VPN服务器地址>|203.0.113.1|" \
 		-e "s|<本单元的虚拟机网段1>|$n1|" -e "$([ -n "$n2" ] && echo "s|<本单元的虚拟机网段2>|$n2|" || echo '/<本单元的虚拟机网段2>/d')" \
 		"$REPO/config/vpn-gateway/multi-unit/wg-unit.conf"
@@ -101,14 +109,19 @@ deploy_scale_gateway() {
 	put "$gw" "$FILES/tune.sh" /etc/lab/tune.sh
 	put "$gw" "$FILES/load-map.sh" /etc/lab/load-map.sh
 	put "$gw" "$FILES/gateway-notify.sh" /etc/lab/notify.sh
+	put "$gw" "$FILES/gateway-tunnel-check.sh" /etc/lab/tunnel-check.sh
 	put "$gw" "$FILES/lab-boot.service" /etc/systemd/system/lab-boot.service
 	put "$gw" "$FILES/envoy.service" /etc/systemd/system/envoy.service
 	put "$gw" "$FILES/keepalived-units.conf" /etc/keepalived/keepalived.conf.in
 	put "$gw" "$FILES/keepalived-stop.conf" /etc/systemd/system/keepalived.service.d/stop-tunnel.conf
 	on "$gw" ". /etc/lab/ifaces.env
-chmod 755 /etc/lab/boot.sh /etc/lab/notify.sh /etc/lab/tune.sh /etc/lab/load-map.sh
+chmod 755 /etc/lab/boot.sh /etc/lab/notify.sh /etc/lab/tune.sh /etc/lab/load-map.sh /etc/lab/tunnel-check.sh
+rm -f /etc/lab/tunnel-check-off
+printf '10.1.255.20\\n10.1.255.21\\n' > /etc/lab/egress-peers
 sed \"s/@SVCIF@/\$IF_SVC_NET/g\" /etc/lab/gwfilter.nft.in > /etc/lab/gwfilter.nft
-sed -e \"s/@SVCIF@/\$IF_SVC_NET/g\" -e 's/@PRIO1@/$2/; s/@PRIO2@/$3/; s/@ADVERT@/$4/g' /etc/keepalived/keepalived.conf.in > /etc/keepalived/keepalived.conf
+sed -e \"s/@SVCIF@/\$IF_SVC_NET/g\" -e 's/@PRIO1@/$2/; s/@PRIO2@/$3/; s/@ADVERT@/$4/g' \\
+	-e 's/@PROBE1@/${UNIT_PROBE[1]}/; s/@PROBE2@/${UNIT_PROBE[2]}/; s/@TARGET@/$PROBE_TARGET/g' \\
+	/etc/keepalived/keepalived.conf.in > /etc/keepalived/keepalived.conf
 echo 0 > /etc/lab/hold-U1; echo 0 > /etc/lab/hold-U2
 /usr/local/bin/envoy --mode validate -c /etc/envoy/envoy.yaml -l error >/dev/null 2>&1 || { echo '$gw：Envoy 配置没有通过校验'; exit 1; }
 systemctl daemon-reload
@@ -278,3 +291,133 @@ fault_power() {
 	done
 }
 fj() { jq -r "$2" <<<"$1"; }   # 从上面的 JSON 里取一个值
+
+# ---------- 故障注入：不断电的故障（进程、隧道、网络分区）----------
+# 注入用一张单独的 nftables 表 labfault，恢复就是删掉这张表。
+inject_nft() { # 节点 规则（可以用 $IF_WAN、$IF_SVC_NET）
+	on "$1" ". /etc/lab/ifaces.env
+nft delete table ip labfault 2>/dev/null
+nft -f - <<EOF
+table ip labfault {
+	chain in {
+		type filter hook input priority -300; policy accept;
+		$2
+	}
+	chain out {
+		type filter hook output priority -300; policy accept;
+		${3:-}
+	}
+}
+EOF"
+}
+heal_nft() { # 节点...：去掉注入的规则
+local n; for n in "$@"; do on "$n" "nft delete table ip labfault 2>/dev/null; true"; done; }
+# unit_holders <服务地址>：列出所有持有这个服务地址的网关（正常是一台；两台都以为自己是主用时是两台）。
+unit_holders() {
+	local gw out=""
+	for gw in "${ALL_GATEWAYS[@]}"; do
+		if on "$gw" "ip -4 addr show | grep -q ' $1/'" 2>/dev/null; then out="$out $gw"; fi
+	done
+	echo "${out:- 无}" | sed 's/^ //'
+}
+# tunnel_holders <隧道接口>：列出所有启动了这条隧道的网关。
+tunnel_holders() {
+	local gw out=""
+	for gw in "${ALL_GATEWAYS[@]}"; do
+		if on "$gw" "ip link show $1 >/dev/null 2>&1" 2>/dev/null; then out="$out $gw"; fi
+	done
+	echo "${out:- 无}" | sed 's/^ //'
+}
+# units_home：把两个单元挪回各自的第一顺位（单元 1 在 gw-1，单元 2 在 gw-2），用“让出”开关，一次只动一个单元。
+units_home() {
+	local h i
+	for i in 1 2 3; do
+		h=$(unit_holder "$GATEWAY_VIP"); [ "$h" = gw-1 ] || [ "$h" = 无 ] || unit_release "$h" U1
+		h=$(unit_holder "$GATEWAY_VIP2"); [ "$h" = gw-2 ] || [ "$h" = 无 ] || unit_release "$h" U2
+		sleep 3
+		[ "$(unit_holders "$GATEWAY_VIP")/$(unit_holders "$GATEWAY_VIP2")" = "gw-1/gw-2" ] && return 0
+	done
+	echo "单元没有回到第一顺位：单元 1 在 $(unit_holders "$GATEWAY_VIP")，单元 2 在 $(unit_holders "$GATEWAY_VIP2")"
+	return 1
+}
+# fault_stats <时间线文件> <注入的时刻> <恢复的时刻>：故障窗口里和恢复之后的失败情况。输出一个 JSON：
+#   fail_during / ok_during / fail_pct_during：窗口里失败、成功的请求数和失败的比例；
+#   first_fail_s：注入后多久出现第一个失败；last_fail_during_s：窗口里最后一个失败离注入多久；
+#   fail_after_heal：恢复之后还失败了多少；clean_after_heal_s：恢复后多久不再有失败；
+#   strip：从注入前 2 秒起每秒一个字符，“.”是没有失败，数字 1 到 9 是失败占一成到九成，“#”是全部失败，“|”标出恢复的时刻。
+fault_stats() {
+	python3 - "$1" "$2" "$3" <<'PY'
+import json, sys
+rows = [(float(a), int(b), int(c)) for a, b, c in (l.split() for l in open(sys.argv[1]))]
+tf, th = float(sys.argv[2]), float(sys.argv[3])
+during = [r for r in rows if tf <= r[0] < th]
+after = [r for r in rows if r[0] >= th]
+d_ok, d_fail = sum(r[1] for r in during), sum(r[2] for r in during)
+bad_d = [r[0] for r in during if r[2] > 0]
+bad_a = [r[0] for r in after if r[2] > 0]
+strip, t = "", tf - 2
+end = rows[-1][0] if rows else tf
+while t < end:
+    if t <= th < t + 1:
+        strip += "|"
+    ok = sum(r[1] for r in rows if t <= r[0] < t + 1)
+    fail = sum(r[2] for r in rows if t <= r[0] < t + 1)
+    if ok + fail == 0:
+        strip += " "
+    elif fail == 0:
+        strip += "."
+    elif ok == 0:
+        strip += "#"
+    else:
+        strip += str(min(9, max(1, round(10 * fail / (ok + fail)))))
+    t += 1
+print(json.dumps({
+    "fail_during": d_fail, "ok_during": d_ok,
+    "fail_pct_during": round(100 * d_fail / (d_ok + d_fail), 1) if d_ok + d_fail else None,
+    "first_fail_s": round(bad_d[0] - tf, 1) if bad_d else None,
+    "last_fail_during_s": round(bad_d[-1] - tf, 1) if bad_d else None,
+    "fail_after_heal": sum(r[2] for r in after),
+    "clean_after_heal_s": round(bad_a[-1] - th + 0.1, 1) if bad_a else 0.0,
+    "strip": strip,
+}))
+PY
+}
+# fault_window <标签> <故障持续的秒数> <注入的函数> <恢复的函数>
+# 观察的四路和 fault_power 相同（块 2、块 3 各一路持续新建连接、各一组 60 条长连接）。
+# 第 10 秒调用注入的函数，过了指定的秒数调用恢复的函数，之后再观察 25 秒。结果在 F_B2、F_B3、F_S2、F_S3 里，
+# 其中新连接的结果多一个 window 字段（见 fault_stats）。
+fault_window() {
+	local label=$1 hold=$2 inject=$3 heal=$4 secs t_fault t_heal r b
+	secs=$((10 + hold + 25))
+	load_bg vm-farm b2 --target "$INTRANET_IP:$FAST_HTTP_L4" --src-base 10.2.0.1 --src-count "$FARM_PER_BLOCK" --expect-base 100.66.0.1 \
+		--conns 300 --rate 300 --timeout 1000 --duration "$secs"
+	load_bg vm-farm b3 --target "$INTRANET_IP:$FAST_HTTP_L4" --src-base 10.3.0.1 --src-count "$FARM_PER_BLOCK" --expect-base 100.67.0.1 \
+		--conns 300 --rate 300 --timeout 1000 --duration "$secs"
+	stream_bg vm-farm s2 --target "$INTRANET_IP:$ECHO_PORT" --src-base 10.2.1.1 --count 60 --duration $((secs - 3))
+	stream_bg vm-farm s3 --target "$INTRANET_IP:$ECHO_PORT" --src-base 10.3.1.1 --count 60 --duration $((secs - 3))
+	sleep 10
+	t_fault=$(on vm-farm "date +%s.%N")
+	"$inject"
+	echo "  已注入，保持 $hold 秒"
+	sleep "$hold"
+	t_heal=$(on vm-farm "date +%s.%N")
+	"$heal"
+	echo "  已恢复"
+	for b in 2 3; do
+		r=$(load_wait vm-farm "b$b")
+		r=$(jq -c --argjson o "$(outage "$RESULTS/tl-b$b.txt" "$t_fault")" --argjson w "$(fault_stats "$RESULTS/tl-b$b.txt" "$t_fault" "$t_heal")" \
+			'{ok, errors, err_mismatch, err_timeout, err_reset, err_connect} + {outage: $o, window: $w}' <<<"$r")
+		eval "F_B$b=\$r"
+		record "$label/块$b/新连接" "$r"
+		echo "  块 $b 新连接：$(jq -r '"成功 \(.ok)，失败 \(.errors)，身份不符 \(.err_mismatch)；中断 \(.outage.outage_s // "没有恢复") 秒；故障期间失败 \(.window.fail_pct_during)%，恢复后 \(.window.clean_after_heal_s) 秒起不再失败"' <<<"$r")"
+		echo "    每秒的失败比例：$(jq -r .window.strip <<<"$r")"
+	done
+	for b in 2 3; do
+		r=$(stream_wait vm-farm "s$b")
+		eval "F_S$b=\$r"
+		record "$label/块$b/长连接" "$r"
+		echo "  块 $b 长连接：$(jq -r '"\(.conns) 条里断了 \(.broken) 条；没断的最长卡了 \(.max_gap) 秒"' <<<"$r")"
+	done
+}
+# within <数值> <上限>：数值存在并且不超过上限时输出“是”，否则“否”。用来把通过的标准写成数字。
+within() { awk -v a="$1" -v b="$2" 'BEGIN { print (a != "" && a != "null" && a + 0 <= b + 0) ? "是" : "否" }'; }

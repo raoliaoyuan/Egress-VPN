@@ -7,6 +7,9 @@
   代表“服务上没有被 Egress 覆盖的入口”。
 - 8443：HTTPS（给了 --cert、--key 时）。
 - 9443：HTTPS，并且要求客户端证书（另外给了 --client-ca 时）。身份取自证书的 CN。
+- 8082：只在本机回环地址上监听，给前面的校验代理用（“一张证书加身份声明”的做法）。校验代理验过 Egress 的证书
+  和身份声明之后，把认出的调用方放在请求头 x-verified-vm、x-verified-vm-ip 里交过来，这里原样报告成
+  declared、declared_ip；x-verified-source 是校验代理看到的连接来源，报告成 forwarded_for。这个端口只信任校验代理，所以不对外监听。
 
 凭证的三种形式：
 - 请求头 x-egress-credential 里的令牌，认出的身份放在响应的 identity 里。
@@ -37,6 +40,7 @@ ap.add_argument("--client-ca")
 ap.add_argument("--tokens")
 ARGS = ap.parse_args()
 HEADER = "x-egress-credential"
+VERIFIED_PORT = 8082
 
 
 def recognize(secret, client):
@@ -94,6 +98,11 @@ class Handler(BaseHTTPRequestHandler):
             "client_cert": cert_cn,
             "path": self.path,
         }
+        if self.server.server_address[1] == VERIFIED_PORT:
+            out["declared"] = self.headers.get("x-verified-vm")
+            out["declared_ip"] = self.headers.get("x-verified-vm-ip")
+            out["forwarded_for"] = self.headers.get("x-verified-source")   # 校验代理看到的连接来源
+            out["saw_declaration"] = "yes" if self.headers.get("x-egress-identity") is not None else "no"
         if self.path.startswith("/reflect"):
             out["headers"] = dict(self.headers.items())
         self.reply(json.dumps(out).encode())
@@ -106,8 +115,8 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def serve(port, ctx=None):
-    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+def serve(port, ctx=None, bind="0.0.0.0"):
+    srv = ThreadingHTTPServer((bind, port), Handler)
     if ctx:
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
     srv.serve_forever()
@@ -128,4 +137,5 @@ if ARGS.cert:
         threading.Thread(target=serve, args=(9443, tls_context(True)), daemon=True).start()
 for port in (8080, 8081):
     threading.Thread(target=serve, args=(port,), daemon=True).start()
+threading.Thread(target=serve, args=(VERIFIED_PORT, None, "127.0.0.1"), daemon=True).start()
 serve(80)

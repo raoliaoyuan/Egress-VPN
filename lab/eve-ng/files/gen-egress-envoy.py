@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """生成实验里 Egress 的 Envoy 配置，输出到标准输出。
 用法：gen-egress-envoy.py baseline|solution --state <state 目录> --vm 名字=地址 [--vm …]
-                           [--scale] [--dataplane-b] [--unscoped] [--redis-inject]
+                           [--scale] [--dataplane-b] [--cred-agent] [--unscoped] [--redis-inject]
+                           [--corp-exit [--direct-dst 网段]… [--direct-src 网段]…] [--audit]
 
 Egress 透明劫持虚拟机发来的全部 TCP。80、8081、8443、9443 端口进七层监听器，其余端口按四层转发。
 - baseline：现状。Egress 看到的流量都直接发往原目的地。
@@ -26,6 +27,22 @@ Egress 透明劫持虚拟机发来的全部 TCP。80、8081、8443、9443 端口
 上游连接的源地址用虚拟机的真实 IP（original_src），出网卡前由内核换成内网 IP。它们不注入凭证：
 实验里走数据面 B 的只有 vm-farm 模拟的块 3，凭证的验证都在走数据面 A 的块 1 上做。
 
+--cred-agent：凭证的规模化做法（“规则按服务写，数据按身份查”）。指定服务的过滤链不再逐台虚拟机生成，
+每个服务端口只有一条（多单元时每个单元再一条）：命中之后由外部授权过滤器去问本机的凭证代理（cred-agent.py），
+凭证代理按“来源地址 × 服务”查表，查到的请求头由 Envoy 写进请求。配置里没有凭证，也没有任何一台虚拟机的地址，
+所以这时不需要 --vm。另外多两种服务端口：
+  declare：Egress 用自己的一张证书向服务发起 TLS，请求头里带凭证代理签发的短期身份声明（9444、9445，
+           对面是内网服务前面的校验代理）。它取代“每台虚拟机一张客户端证书、一个上游集群”；
+  8090（压测用的服务端）也算作带令牌的服务，用来量每个请求多一次本机查询的开销。
+逐台虚拟机的客户端证书（9443、6380）在这种做法下不再生成，这两个端口的请求不带证书转发。
+
+--corp-exit：出口模式“经企业出口”。去公网的连接不再从 Egress 的出口网卡直接出去，而是和去内网的连接一样
+交给 VPN 网关（PROXY 头里写着虚拟机的地址和公网的目的地址），经隧道、VPN 服务器、内网，从企业的互联网出口出去。
+没有降级：这条路不通时连接失败，不会自动改成本地直出。例外用 --direct-dst（按目的地，例如软件源）和
+--direct-src（按虚拟机）指定，命中的仍然本地直出。指定服务（要注入凭证的）只看按目的地的例外。
+--audit：每条连接、每个请求记一行 JSON 到 /var/log/egress-audit.log：哪台虚拟机、去哪里（地址、域名）、
+走的哪个上游、用的哪个出口地址、结果。不记请求头，所以里面不会有凭证；路径不带查询串。被拒绝的也记。
+
 --unscoped 只用于对照实验：另外对每台虚拟机发往任意目的地 80 端口的请求也注入，重现“不按目的地限定”的后果。
 --redis-inject 只用于试验：内网服务的 6379 端口改用 Envoy 的 Redis 代理，由它替虚拟机登录。
 用来看这种做法在本方案里行不行得通（它的上游连接不与某一条下游连接对应，带不了虚拟机的身份）。
@@ -35,6 +52,7 @@ Egress 透明劫持虚拟机发来的全部 TCP。80、8081、8443、9443 端口
 import argparse
 import base64
 import copy
+import ipaddress
 import os
 import sys
 
@@ -46,6 +64,11 @@ ap.add_argument("--state", required=True)
 ap.add_argument("--vm", action="append", default=[], metavar="名字=地址")
 ap.add_argument("--scale", action="store_true")
 ap.add_argument("--dataplane-b", action="store_true")
+ap.add_argument("--cred-agent", action="store_true")
+ap.add_argument("--corp-exit", action="store_true")
+ap.add_argument("--direct-dst", action="append", default=[], metavar="网段")
+ap.add_argument("--direct-src", action="append", default=[], metavar="网段")
+ap.add_argument("--audit", action="store_true")
 ap.add_argument("--unscoped", action="store_true")
 ap.add_argument("--redis-inject", action="store_true")
 ARGS = ap.parse_args()
@@ -58,7 +81,7 @@ if ARGS.scale:
     UNITS.append({"n": 2, "vip": "10.1.255.30", "src": [{"address_prefix": "10.3.0.0", "prefix_len": 16}]})
 OTHER_UNITS = [u for u in UNITS if u["src"]]
 HEADER = "x-egress-credential"
-HTTP_PORTS = [80, 8081, 8090, 8443, 9443]   # 要与 egress.nft 里重定向到七层监听器的端口一致
+HTTP_PORTS = [80, 8081, 8090, 8443, 9443, 9444, 9445]   # 要与 egress.nft 里重定向到七层监听器的端口一致
 PLAIN_HTTP = (80, 8081, 8090)         # 其中虚拟机和服务之间本来就是明文 HTTP 的端口（8090 是压测用的服务端）
 REDIS_PORT = 6379
 CLIENT_DIR = "/etc/lab/client"  # Egress 上存放各虚拟机客户端证书的目录
@@ -69,6 +92,56 @@ SERVICES = [
 ]
 VMS = dict(v.split("=", 1) for v in ARGS.vm)
 SOLUTION = ARGS.stage == "solution"
+AGENT = ARGS.cred_agent
+if AGENT:
+    VMS = {}   # 这种做法下配置里不出现任何一台虚拟机
+    SERVICES[0]["ports"].update({8090: "token", 9444: "declare", 9445: "declare"})
+    SERVICES[0]["tcp"] = {}
+AGENT_HEADERS = [HEADER, "authorization", "x-egress-identity"]   # 凭证代理可能写进请求的头
+
+
+def cidr(text):
+    net = ipaddress.ip_network(text, strict=False)
+    return {"address_prefix": str(net.network_address), "prefix_len": net.prefixlen}
+
+
+CORP = ARGS.corp_exit and SOLUTION
+DIRECT_DST = [cidr(x) for x in ARGS.direct_dst]
+DIRECT_SRC = [cidr(x) for x in ARGS.direct_src]
+
+
+def dst_is_direct(ip):
+    return any(ipaddress.ip_address(ip) in ipaddress.ip_network(x, strict=False) for x in ARGS.direct_dst)
+
+
+def internet(base):
+    """去公网的连接走哪个上游。base 是这一组过滤链共同的匹配条件，返回若干条（匹配条件, 上游）。
+    本地直出时只有一条；经企业出口时先列例外（按目的地、按虚拟机），再按来源所在的块选网关单元。"""
+    if not CORP:
+        return [(base, "direct")]
+    out = [({**base, "prefix_ranges": [d]}, "direct") for d in DIRECT_DST]
+    out += [({**base, "source_prefix_ranges": [x]}, "direct") for x in DIRECT_SRC]
+    out += [({**base, "source_prefix_ranges": u["src"]}, f"vpn_gateway_{u['n']}") for u in OTHER_UNITS]
+    out.append((base, "vpn_gateway_1"))
+    return out
+
+
+def access_log(http):
+    if not ARGS.audit:
+        return {}
+    fields = {"time": "%START_TIME%", "vm": "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%", "dst": "%DOWNSTREAM_LOCAL_ADDRESS%",
+              "sni": "%REQUESTED_SERVER_NAME%", "via": "%UPSTREAM_CLUSTER%", "egress_src": "%UPSTREAM_LOCAL_ADDRESS%",
+              "flags": "%RESPONSE_FLAGS%", "sent": "%BYTES_SENT%", "received": "%BYTES_RECEIVED%", "ms": "%DURATION%"}
+    if http:
+        fields.update({"method": "%REQ(:METHOD)%", "host": "%REQ(:AUTHORITY)%", "path": "%PATH(NQ)%",
+                       "code": "%RESPONSE_CODE%"})
+    return {"access_log": [{
+        "name": "envoy.access_loggers.file",
+        "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog",
+            "path": "/var/log/egress-audit.log", "log_format": {"json_format": fields},
+        },
+    }]}
 
 
 def token(vm, service):
@@ -89,24 +162,55 @@ def tcp_filter(cluster):
         "name": "envoy.filters.network.tcp_proxy",
         "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
-            "stat_prefix": "tcp_" + cluster, "cluster": cluster,
+            "stat_prefix": "tcp_" + cluster, "cluster": cluster, **access_log(False),
         },
     }
 
 
-def http_filter(vhost):
+def http_filter(vhost, before_router=()):
     return {
         "name": "envoy.filters.network.http_connection_manager",
         "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
-            "stat_prefix": "http_" + vhost["name"],
+            "stat_prefix": "http_" + vhost["name"], **access_log(True),
             "route_config": {"virtual_hosts": [vhost]},
-            "http_filters": [{
+            "http_filters": list(before_router) + [{
                 "name": "envoy.filters.http.router",
                 "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"},
             }],
         },
     }
+
+
+def agent_filters(service_key, mode):
+    """按身份查凭证的两个过滤器：先删掉虚拟机自带的同名请求头，再去问本机的凭证代理。
+    凭证代理不可用时请求直接失败（403），不带凭证转发没有意义。"""
+    strip = {"token": [HEADER], "token-tls": [HEADER], "basic": ["authorization"], "declare": ["x-egress-identity", HEADER]}.get(mode)
+    if not strip:
+        return []   # 逐台客户端证书的端口：这种做法下不处理，请求不带证书转发
+    return [
+        {"name": "envoy.filters.http.header_mutation",
+         "typed_config": {
+             "@type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutation",
+             "mutations": {"request_mutations": [{"remove": h} for h in strip]},
+         }},
+        {"name": "envoy.filters.http.ext_authz",
+         "typed_config": {
+             "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+             "transport_api_version": "V3",
+             "failure_mode_allow": False,
+             "http_service": {
+                 "server_uri": {"uri": "http://127.0.0.1:9191", "cluster": "cred_agent", "timeout": "0.5s"},
+                 "path_prefix": "/lookup",
+                 # 来源地址取自连接本身，不取自请求头；虚拟机自带的同名头会被这里覆盖
+                 "authorization_request": {"headers_to_add": [
+                     {"key": "x-lab-source", "value": "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"},
+                     {"key": "x-lab-service", "value": service_key},
+                 ]},
+                 "authorization_response": {"allowed_upstream_headers": {"patterns": [{"exact": h} for h in strip[:1]]}},
+             },
+         }},
+    ]
 
 
 def chain(match, filt):
@@ -127,9 +231,12 @@ def service_vhost(svc, port, vm, unit=1):
     """指定服务的请求。vm 为 None 表示来源不是已知的虚拟机，不给凭证。unit 是这个来源所属的网关单元。"""
     mode = svc["ports"][port]
     if not svc["via_gateway"]:
-        cluster = "direct"
+        # 公网上的指定服务：本地直出，或者经企业出口（这个目的地是例外的除外）
+        cluster = f"vpn_gateway_{unit}" if CORP and not dst_is_direct(svc["ip"]) else "direct"
     elif mode in ("token", "basic"):
         cluster = f"vpn_gateway_{unit}"
+    elif mode == "declare":
+        cluster = f"vpn_gateway_{unit}_egresscert"
     elif mode == "mtls" and vm:
         cluster = f"vpn_gateway_{unit}_mtls_{vm}"
     else:
@@ -144,7 +251,9 @@ def service_vhost(svc, port, vm, unit=1):
             {"match": {"prefix": "/"}, "route": {"cluster": cluster}},
         ],
     }
-    if vm and mode in ("token", "token-tls"):
+    if AGENT:
+        pass   # 请求头由 agent_filters 里的两个过滤器处理
+    elif vm and mode in ("token", "token-tls"):
         vhost["request_headers_to_add"] = inject(HEADER, token(vm, svc["name"]))
     elif vm and mode == "basic":
         vhost["request_headers_to_add"] = inject(
@@ -179,9 +288,11 @@ if SOLUTION:
             "match_typed_subject_alt_names": [{"san_type": "DNS", "matcher": {"exact": "intranet-svc"}}],
         }}
         if client_cert:
+            # 给的是虚拟机的名字时用它的客户端证书；给的是完整路径时用那一张（Egress 自己的证书）
+            base = client_cert if "/" in client_cert else f"{CLIENT_DIR}/{client_cert}"
             common["tls_certificates"] = [{
-                "certificate_chain": {"filename": f"{CLIENT_DIR}/{client_cert}.pem"},
-                "private_key": {"filename": f"{CLIENT_DIR}/{client_cert}.key"},
+                "certificate_chain": {"filename": f"{base}.pem"},
+                "private_key": {"filename": f"{base}.key"},
             }]
         c["transport_socket"]["typed_config"]["transport_socket"] = {
             "name": "envoy.transport_sockets.tls",
@@ -195,6 +306,8 @@ if SOLUTION:
     for unit in UNITS:
         clusters.append(unit_cluster(unit))
         clusters.append(tls_cluster(unit, "_tls"))
+        if AGENT:   # Egress 自己的一张证书，所有虚拟机共用；是谁发的由请求头里的身份声明说明
+            clusters.append(tls_cluster(unit, "_egresscert", client_cert="/etc/lab/egress-cert"))
     for vm in VMS:   # 三台真实的虚拟机都在块 1，属于单元 1
         clusters.append(tls_cluster(UNITS[0], "_mtls_" + vm, client_cert=vm))
 
@@ -206,13 +319,15 @@ for port in HTTP_PORTS:
         if port not in svc["ports"] or (svc["via_gateway"] and not SOLUTION):
             continue
         dst = {"destination_port": port, "prefix_ranges": [host(svc["ip"])]}
+        # 按身份查时，这个服务端口的每条过滤链都带上“问凭证代理”的两个过滤器，链的条数和虚拟机数量无关
+        extra = agent_filters(f"{svc['name']}:{port}", svc["ports"][port]) if AGENT else ()
         for vm, ip in VMS.items():
             http_chains.append(chain({**dst, "source_prefix_ranges": [host(ip)]}, http_filter(service_vhost(svc, port, vm))))
-        if svc["via_gateway"]:
+        if svc["via_gateway"] or CORP:
             for unit in OTHER_UNITS:
                 http_chains.append(chain({**dst, "source_prefix_ranges": unit["src"]},
-                                         http_filter(service_vhost(svc, port, None, unit["n"]))))
-        http_chains.append(chain(dst, http_filter(service_vhost(svc, port, None))))
+                                         http_filter(service_vhost(svc, port, None, unit["n"]), extra)))
+        http_chains.append(chain(dst, http_filter(service_vhost(svc, port, None), extra)))
     if ARGS.unscoped and port == 80:
         for vm, ip in VMS.items():
             vhost = plain_vhost("direct")
@@ -225,8 +340,14 @@ for port in HTTP_PORTS:
         to_gateway = [({"destination_port": port, "prefix_ranges": [INTRANET], "source_prefix_ranges": u["src"]},
                        f"vpn_gateway_{u['n']}") for u in OTHER_UNITS]
         to_gateway.append(({"destination_port": port, "prefix_ranges": [INTRANET]}, "vpn_gateway_1"))
-    for match, cluster in to_gateway + [({"destination_port": port}, "direct")]:
+    for match, cluster in to_gateway + internet({"destination_port": port}):
         http_chains.append(chain(match, http_filter(plain_vhost(cluster)) if port in PLAIN_HTTP else tcp_filter(cluster)))
+if AGENT:
+    clusters.append({
+        "name": "cred_agent", "type": "STATIC", "connect_timeout": "0.5s", "circuit_breakers": BREAKERS,
+        "load_assignment": {"cluster_name": "cred_agent", "endpoints": [{"lb_endpoints": [
+            {"endpoint": {"address": {"socket_address": {"address": "127.0.0.1", "port_value": 9191}}}}]}]},
+    })
 
 # 四层监听器的过滤链。一个端口一旦有了专门的过滤链，这个端口上的连接就只在这些链里匹配，
 # 所以专门处理的端口同样要带齐兜底：指定服务不带凭证的、内网其余地址、其余所有地址。
@@ -245,7 +366,7 @@ if SOLUTION:
                 tcp_chains.append(chain({"destination_port": port, "prefix_ranges": [INTRANET], "source_prefix_ranges": u["src"]},
                                         tcp_filter(f"vpn_gateway_{u['n']}")))
             tcp_chains.append(chain({"destination_port": port, "prefix_ranges": [INTRANET]}, tcp_filter("vpn_gateway_1")))
-            tcp_chains.append(chain({"destination_port": port}, tcp_filter("direct")))
+            tcp_chains += [chain(m, tcp_filter(c)) for m, c in internet({"destination_port": port})]
     if ARGS.redis_inject:
         user, password = shared("intranet-svc").split(":", 1)
         c = unit_cluster(UNITS[0], "_redis")
@@ -268,7 +389,7 @@ if SOLUTION:
     for u in OTHER_UNITS:
         tcp_chains.append(chain({"prefix_ranges": [INTRANET], "source_prefix_ranges": u["src"]}, tcp_filter(f"vpn_gateway_{u['n']}")))
     tcp_chains.append(chain({"prefix_ranges": [INTRANET]}, tcp_filter("vpn_gateway_1")))
-tcp_chains.append({"filters": [tcp_filter("direct")]})
+tcp_chains += [chain(m, tcp_filter(c)) if m else {"filters": [tcp_filter(c)]} for m, c in internet({})]
 
 ORIGINAL_DST = {
     "name": "envoy.filters.listener.original_dst",

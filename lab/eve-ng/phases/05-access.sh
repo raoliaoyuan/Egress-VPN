@@ -4,7 +4,8 @@
 #   - rtr-acc：三台虚拟机和 vm-farm 的默认网关，按源地址所在的块做策略路由，下一跳是这个块的接入地址；
 #   - vm-farm：把块 2、块 3 的虚拟机网段整段设成本机地址，用一个节点模拟大量虚拟机；
 #   - 两台 Egress 上的 keepalived：块 1、块 2 的接入地址平时在 egress-1，块 3 的在 egress-2，互为热备；
-#   - 压测工具：发流量的节点上是 labload、stream-client.py、iperf3，内网服务节点上是 labsrv 和 iperf3 服务端。
+#   - 压测工具：发流量的节点上是 labload、stream-client.py、iperf3，内网服务节点上是 labsrv 和 iperf3 服务端；
+#   - vpn-server 和 rtr-core（内网核心路由器）之间的静态路由：内网服务在 rtr-core 后面，各地址块在 vpn-server 后面。
 # Egress 的 Envoy 还没有配置时，两台 Egress 都不会持有接入地址（keepalived 检查 Envoy 在不在），
 # 要等 20-baseline.sh 或 30-deploy-solution.sh 配好 Egress 之后虚拟机才能出去。
 set -euo pipefail
@@ -19,10 +20,12 @@ boot_unit() { # 节点 boot.sh 的来源文件：装上开机脚本并立刻执�
 	on "$1" "chmod 755 /etc/lab/tune.sh /etc/lab/boot.sh; systemctl daemon-reload; systemctl enable -q lab-boot.service; /etc/lab/boot.sh"
 }
 
-say "内核参数"
+say "内核参数；VPN 服务器和内网核心路由器之间的静态路由"
 printf '#!/bin/bash\n/etc/lab/tune.sh\nexit 0\n' > "$STATE/boot.tmp"
-for n in vpn-server intranet-svc; do boot_unit "$n" "$STATE/boot.tmp"; done
+for n in intranet-svc vpn-server-2 corp-exit ctrl; do boot_unit "$n" "$STATE/boot.tmp"; done
 rm -f "$STATE/boot.tmp"
+boot_unit vpn-server "$FILES/vpn-server-boot.sh"
+boot_unit rtr-core "$FILES/rtr-core-boot.sh"
 for n in "${EGRESS_NODES[@]}" gw-1 gw-2 gw-3; do
 	put "$n" "$FILES/tune.sh" /etc/lab/tune.sh
 	on "$n" "chmod 755 /etc/lab/tune.sh; /etc/lab/tune.sh conntrack; echo \"$n：连接跟踪表上限 \$(cat /proc/sys/net/netfilter/nf_conntrack_max)\""
@@ -63,6 +66,7 @@ check "rtr-acc 把块 3 的流量交给块 3 的接入地址" "$ACCESS_VIP3" "$(
 check "虚拟机能到达它的默认网关 rtr-acc（反向路径检查没有误伤）" 通 "$(on vm-a "ping -c2 -W2 10.1.2.1 >/dev/null 2>&1 && echo 通 || echo 不通")"
 check "vm-farm 能到达它的默认网关 rtr-acc" 通 "$(on vm-farm "ping -c2 -W2 10.1.253.1 >/dev/null 2>&1 && echo 通 || echo 不通")"
 check "vm-farm 能绑定块 2、块 3 里的任意地址" "可以 可以" "$(on vm-farm "for a in 10.2.77.1 10.3.200.9; do python3 -c \"import socket; s = socket.socket(); s.bind(('\$a', 0)); print('可以')\" 2>/dev/null || echo 不行; done | tr '\n' ' '" | sed 's/ $//')"
+check "内网服务经内网核心路由器能到 VPN 服务器" 通 "$(on intranet-svc "ping -c2 -W2 10.200.0.2 >/dev/null 2>&1 && echo 通 || echo 不通")"
 check "内网服务节点上的压测服务端在监听" "7000 8090 8091" "$(on intranet-svc "ss -ltn | grep -oE ':(7000|8090|8091) ' | tr -d ': ' | sort -u | tr '\n' ' '" | sed 's/ $//')"
 if on egress-1 "pgrep -x envoy >/dev/null" && on egress-2 "pgrep -x envoy >/dev/null"; then
 	access_home || true

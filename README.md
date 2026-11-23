@@ -4,7 +4,7 @@
 
 带架构图的完整方案文档见 [docs/design.md](docs/design.md)。
 
-在它之上怎么去掉单点、支撑大量虚拟机接入的设计草案见 [docs/ha-scale-design.md](docs/ha-scale-design.md)，内容尚未验证。
+在它之上怎么去掉单点、支撑大量虚拟机接入的设计草案见 [docs/ha-scale-design.md](docs/ha-scale-design.md)。其中一部分已经在实验里做过，结果见 [docs/ha-scale-results.md](docs/ha-scale-results.md)（第一轮：分片、多单元、两种数据面）和 [docs/ha-scale-results-2.md](docs/ha-scale-results-2.md)（第二轮：断电以外的故障、凭证的规模化、多台 VPN 服务器、经企业出口、逐台阻断）；控制面等部分仍然没有验证。
 
 本方案和服务网格、出口网关等业界做法的逐项对照见 [docs/industry-comparison.md](docs/industry-comparison.md)。
 

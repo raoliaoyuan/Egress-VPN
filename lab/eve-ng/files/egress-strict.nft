@@ -1,0 +1,72 @@
+#!/usr/sbin/nft -f
+# 实验里 Egress 节点的内核规则，收紧的版本（互联网出口的几项检查）。@VMIF@、@WANIF@ 由部署脚本替换成网卡名。
+# 和 egress.nft 的差别：
+#   - 非 TCP 默认拒绝。egress.nft 把虚拟机发来的非 TCP 流量都转发出去（为了让“现状”里虚拟机自带的隧道能通），
+#     这也让任何 UDP 都绕过了七层的控制。这里只放行两种：还没迁移的虚拟机到 VPN 服务器的隧道报文、
+#     到指定解析器的 DNS。其余的丢弃，并在内核日志里留一条（限速）。
+#   - 虚拟机给的目的地址不能是基础设施。egress.nft 只拦了网关所在的网段。这里拦两类：
+#     一切私有地址，除了登记过的内网服务网段（实验主机的管理网、接入网段、内网核心网段都在里面）；
+#     承载网上的基础设施地址（网关、VPN 服务器、Egress、企业出口的外侧地址）。
+#     没有这一条，虚拟机可以让 Egress 替它去连这些地址；经企业出口时还能经隧道连到 VPN 服务器在内网一侧的地址。
+
+table ip egress
+delete table ip egress
+
+table ip egress {
+	# 被阻断的虚拟机（真实 IP）
+	set blocked {
+		type ipv4_addr
+	}
+	# 还没迁移、仍然自带隧道的虚拟机（真实 IP）。迁移完一台删一台
+	set legacy_vms {
+		type ipv4_addr
+	}
+	# 指定的 DNS 解析器
+	set resolvers {
+		type ipv4_addr
+		elements = { 203.0.113.80 }
+	}
+	# 登记过的内网服务网段：私有地址里只有它们可以作为目的地址
+	set intranet_ok {
+		type ipv4_addr
+		flags interval
+		elements = { 10.200.5.0/24 }
+	}
+	# 承载网上的基础设施地址
+	set infra_wan {
+		type ipv4_addr
+		flags interval
+		elements = { 203.0.113.1, 203.0.113.2, 203.0.113.9, 203.0.113.11-203.0.113.13, 203.0.113.20-203.0.113.21 }
+	}
+
+	chain guard {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname "@VMIF@" ip saddr @blocked counter drop
+		# 旧隧道的报文要去 VPN 服务器的外侧地址，在下面的基础设施检查之前放行
+		iifname "@VMIF@" ip saddr @legacy_vms ip daddr 203.0.113.1 udp dport 51820 accept
+		iifname "@VMIF@" ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8 } ip daddr != @intranet_ok counter drop
+		iifname "@VMIF@" ip daddr @infra_wan counter drop
+	}
+
+	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy，同 egress.nft
+	chain intercept {
+		type nat hook prerouting priority dstnat; policy accept;
+		iifname "@VMIF@" tcp dport { 80, 8081, 8090, 8443, 9443, 9444, 9445 } redirect to :15007
+		iifname "@VMIF@" meta l4proto tcp redirect to :15006
+	}
+
+	chain masq_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "@WANIF@" ip saddr 10.1.2.0/24 masquerade
+	}
+
+	# 非 TCP：默认拒绝
+	chain vm_forward {
+		type filter hook forward priority filter; policy drop;
+		ct state established,related accept
+		iifname "@VMIF@" oifname "@WANIF@" ip saddr @legacy_vms ip daddr 203.0.113.1 udp dport 51820 accept
+		iifname "@VMIF@" oifname "@WANIF@" ip daddr @resolvers udp dport 53 accept
+		iifname "@VMIF@" limit rate 20/second log prefix "egress-deny "
+		iifname "@VMIF@" counter drop
+	}
+}

@@ -1,0 +1,42 @@
+#!/usr/sbin/nft -f
+#
+# VPN 网关：多台 VPN 服务器同时工作时的地址映射和回程标记（数据面 A 的“目标做法”）。
+#
+# 和 ../multi-unit/vpngw.nft 的差别：隧道不再按单元分（每台服务器一条，叫 wg-s1、wg-s2……），
+# 所以“这条隧道只许出这个单元的地址块”改成“只许出本机此刻承载着的单元的地址块”：
+# 集合 active_blocks 由 keepalived 的通知脚本维护，当上某个单元的主用时加入它的块，让出时删掉。
+# 没登记的虚拟机、不该由本机承载的连接都在 guard_out 丢弃。
+# 规则都限定在带标记 123 的连接上（Envoy 以虚拟机地址发起的上游连接），本机自己的 BGP、BFD 报文不受影响。
+
+table ip vpngw {
+	# 虚拟机真实 IP : 该虚拟机的内网 IP
+	map vm2intra {
+		type ipv4_addr : ipv4_addr
+	}
+
+	# 本机此刻承载着的单元的内网地址块
+	set active_blocks {
+		type ipv4_addr
+		flags interval
+	}
+
+	chain out_mark {
+		type filter hook output priority mangle; policy accept;
+		meta mark 123 ct mark set 123
+	}
+
+	chain in_mark {
+		type filter hook prerouting priority mangle; policy accept;
+		iifname "wg-s*" ct mark 123 meta mark set 123
+	}
+
+	chain snat_out {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "wg-s*" meta mark 123 snat to ip saddr map @vm2intra
+	}
+
+	chain guard_out {
+		type filter hook postrouting priority 110; policy accept;
+		oifname "wg-s*" meta mark 123 ip saddr != @active_blocks drop
+	}
+}

@@ -3,7 +3,7 @@
       "name": "Egress-VPN",
       "file": "/opt/unetlab/labs/Egress-VPN.unl",
       "image": "linux-egressvpn",
-      "description": "Egress 与 VPN 共存方案的完整复现：旧隧道基线、新方案部署、逐台迁移、主备切换，以及高可用与规模化（分片、多单元、两种数据面）"
+      "description": "Egress 与 VPN 共存方案的完整复现：旧隧道基线、新方案部署、逐台迁移、主备切换，以及高可用与规模化（分片、多单元、两种数据面、多台 VPN 服务器、控制面、企业出口）"
   },
   "networks": [
     {"id": 21, "name": "VM-NET", "type": "bridge", "cidr": "10.1.2.0/24", "left": 390, "top": 210},
@@ -12,7 +12,8 @@
     {"id": 24, "name": "INTRANET", "type": "bridge", "cidr": "10.200.5.0/24", "left": 630, "top": 780},
     {"id": 25, "name": "MGMT", "type": "pnet0", "cidr": "见 local.env 的 MGMT_PREFIX", "left": 960, "top": 450},
     {"id": 26, "name": "FARM-NET", "type": "bridge", "cidr": "10.1.253.0/24", "left": 133, "top": 180},
-    {"id": 27, "name": "ACC-NET", "type": "bridge", "cidr": "10.1.254.0/24", "left": 255, "top": 290}
+    {"id": 27, "name": "ACC-NET", "type": "bridge", "cidr": "10.1.254.0/24", "left": 255, "top": 290},
+    {"id": 28, "name": "CORE-NET", "type": "bridge", "cidr": "10.200.0.0/24", "left": 800, "top": 700}
   ],
   "nodes": [
     {"id": 21, "name": "vm-a", "cpu": 1, "ram": 512, "mgmt_host": 81, "left": 180, "top": 90, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.3/24"}], "gw": "10.1.2.1"},
@@ -21,13 +22,17 @@
     {"id": 24, "name": "egress-1", "cpu": 2, "ram": 2048, "mgmt_host": 84, "left": 390, "top": 330, "forward": true, "ifaces": [{"net": "ACC-NET", "addr": "10.1.254.20/24"}, {"net": "SVC-NET", "addr": "10.1.255.20/24"}, {"net": "WAN", "addr": "203.0.113.20/24"}]},
     {"id": 25, "name": "gw-1", "cpu": 2, "ram": 2048, "mgmt_host": 85, "left": 180, "top": 570, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.11/24"}, {"net": "WAN", "addr": "203.0.113.11/24"}]},
     {"id": 26, "name": "gw-2", "cpu": 2, "ram": 2048, "mgmt_host": 86, "left": 390, "top": 570, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.12/24"}, {"net": "WAN", "addr": "203.0.113.12/24"}]},
-    {"id": 27, "name": "vpn-server", "cpu": 2, "ram": 1024, "mgmt_host": 87, "left": 630, "top": 660, "forward": true, "ifaces": [{"net": "WAN", "addr": "203.0.113.1/24"}, {"net": "INTRANET", "addr": "10.200.5.1/24"}]},
+    {"id": 27, "name": "vpn-server", "cpu": 2, "ram": 1024, "mgmt_host": 87, "left": 630, "top": 660, "forward": true, "ifaces": [{"net": "WAN", "addr": "203.0.113.1/24"}, {"net": "CORE-NET", "addr": "10.200.0.2/24"}]},
     {"id": 28, "name": "intranet-svc", "cpu": 2, "ram": 1024, "mgmt_host": 88, "left": 630, "top": 900, "ifaces": [{"net": "INTRANET", "addr": "10.200.5.6/24"}], "gw": "10.200.5.1"},
     {"id": 29, "name": "public-web", "cpu": 1, "ram": 512, "mgmt_host": 89, "left": 840, "top": 330, "ifaces": [{"net": "WAN", "addr": "203.0.113.80/24"}]},
     {"id": 30, "name": "vm-farm", "cpu": 3, "ram": 2048, "mgmt_host": 90, "left": 130, "top": 42, "ifaces": [{"net": "FARM-NET", "addr": "10.1.253.2/24"}], "gw": "10.1.253.1"},
     {"id": 31, "name": "rtr-acc", "cpu": 2, "ram": 512, "mgmt_host": 91, "left": 255, "top": 180, "forward": true, "ifaces": [{"net": "VM-NET", "addr": "10.1.2.1/24"}, {"net": "FARM-NET", "addr": "10.1.253.1/24"}, {"net": "ACC-NET", "addr": "10.1.254.1/24"}]},
     {"id": 32, "name": "egress-2", "cpu": 2, "ram": 2048, "mgmt_host": 92, "left": 555, "top": 282, "forward": true, "ifaces": [{"net": "ACC-NET", "addr": "10.1.254.21/24"}, {"net": "SVC-NET", "addr": "10.1.255.21/24"}, {"net": "WAN", "addr": "203.0.113.21/24"}]},
-    {"id": 33, "name": "gw-3", "cpu": 2, "ram": 2048, "mgmt_host": 93, "left": 595, "top": 519, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.13/24"}, {"net": "WAN", "addr": "203.0.113.13/24"}]}
+    {"id": 33, "name": "gw-3", "cpu": 2, "ram": 2048, "mgmt_host": 93, "left": 595, "top": 519, "ifaces": [{"net": "SVC-NET", "addr": "10.1.255.13/24"}, {"net": "WAN", "addr": "203.0.113.13/24"}]},
+    {"id": 34, "name": "vpn-server-2", "cpu": 2, "ram": 1024, "mgmt_host": 94, "left": 840, "top": 600, "forward": true, "ifaces": [{"net": "WAN", "addr": "203.0.113.2/24"}, {"net": "CORE-NET", "addr": "10.200.0.3/24"}]},
+    {"id": 35, "name": "rtr-core", "cpu": 2, "ram": 512, "mgmt_host": 95, "left": 800, "top": 800, "forward": true, "ifaces": [{"net": "CORE-NET", "addr": "10.200.0.1/24"}, {"net": "INTRANET", "addr": "10.200.5.1/24"}]},
+    {"id": 36, "name": "ctrl", "cpu": 2, "ram": 1024, "mgmt_host": 96, "left": 1000, "top": 250, "ifaces": []},
+    {"id": 37, "name": "corp-exit", "cpu": 2, "ram": 512, "mgmt_host": 97, "left": 960, "top": 700, "forward": true, "ifaces": [{"net": "CORE-NET", "addr": "10.200.0.9/24"}, {"net": "WAN", "addr": "203.0.113.9/24"}]}
   ],
   "hosts": {
       "rtr-acc": "10.1.2.1",
@@ -38,6 +43,9 @@
       "gateway-vip": "10.1.255.10",
       "gateway-vip-2": "10.1.255.30",
       "vpn-server": "203.0.113.1",
+      "vpn-server-2": "203.0.113.2",
+      "rtr-core": "10.200.5.1",
+      "corp-exit": "10.200.0.9",
       "intranet-svc": "10.200.5.6",
       "public-web": "203.0.113.80"
   }

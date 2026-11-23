@@ -1,0 +1,198 @@
+# 内网服务前面的校验代理：Envoy 配置（“一张证书加身份声明”的服务一侧）
+#
+# 作用：Egress 用自己的一张证书向内网服务发起 TLS，每个请求带一份它签发的短期身份声明（JWT），
+# 说明这个请求是替哪台虚拟机发的。这个代理放在服务前面，替服务校验三样，都通过才放行：
+#   1. 连接上的客户端证书是 Egress 的（由指定的 CA 签发，并且带指定的名字）；
+#   2. 声明的签名、签发者、受众、有效期都对（jwt_authn 过滤器；签发者和受众不显式配置就不检查）；
+#   3. 声明里的内网 IP 等于这条连接的来源地址（rbac 过滤器里的一条 CEL 表达式）。
+# 通过之后，声明本身不再往后传（forward: false），认出的调用方用两个请求头交给服务：
+# x-verified-vm（虚拟机标识）、x-verified-vm-ip（内网 IP），另有 x-verified-source（连接的来源地址）。
+# 客户端自带的这几个头会被覆盖。
+# 服务只接受来自这个代理的连接，把这两个头当作调用方。
+#
+# 要替换的内容：
+#   - 证书和私钥、信任的 CA、Egress 证书里的名字（下面是 egress.lab）；
+#   - 声明的签发者（issuer）和受众（audiences）。受众是“服务名:端口”，一个监听端口一个；
+#   - /etc/lab/declare-jwks.json：各台 Egress 签名密钥的公钥，由控制面下发，轮换时新旧并存；
+#   - 两个上游的地址。
+#
+# 关于第 3 条的写法（实验里试出来的，官方文档没有现成的例子）：
+#   - 授权策略的 condition 是一棵解析好的 CEL 语法树，不能直接写成字符串。下面那一段等价于：
+#       request.headers["x-verified-source"] == metadata.filter_metadata["envoy.filters.http.jwt_authn"]["payload"]["vm_ip"]
+#   - 不能直接拿 source.address 来比：它是“地址:端口”，而 Envoy 关掉了 CEL 的字符串拼接，
+#     写不出“声明里的地址加一个冒号”。只比开头（startsWith）又不严：100.64.0.7 是 100.64.0.70 的开头。
+#   - 所以先用 header_mutation 过滤器把连接的来源地址（不带端口）写进请求头 x-verified-source，
+#     覆盖客户端自带的同名头，再让条件拿它和声明里的地址做相等比较。这个头也一并交给服务，当作连接的来源。
+
+static_resources:
+  listeners:
+  - name: verified_9444
+    address:
+      socket_address: {address: 0.0.0.0, port_value: 9444}
+    filter_chains:
+    - transport_socket: &egress_only_tls
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          require_client_certificate: true
+          common_tls_context:
+            tls_certificates:
+            - certificate_chain: {filename: /etc/lab/svc.pem}
+              private_key: {filename: /etc/lab/svc.key}
+            validation_context:
+              trusted_ca: {filename: /etc/lab/client-ca.pem}
+              # 只认 Egress 的证书。同一个 CA 签的别的证书（例如每台虚拟机的客户端证书）不带这个名字，握手被拒绝
+              match_typed_subject_alt_names:
+              - san_type: DNS
+                matcher: {exact: egress.lab}
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: verified_9444
+          route_config:
+            virtual_hosts:
+            - name: service
+              domains: ["*"]
+              routes:
+              - match: {prefix: "/"}
+                route: {cluster: service}
+          http_filters:
+          - &source_header
+            name: envoy.filters.http.header_mutation
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutation
+              mutations:
+                request_mutations:
+                - append:
+                    header: {key: x-verified-source, value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"}
+                    append_action: OVERWRITE_IF_EXISTS_OR_ADD
+          - name: envoy.filters.http.jwt_authn
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+              providers:
+                egress:
+                  issuer: egress.lab
+                  audiences: ["intranet-svc:9444"]
+                  local_jwks: {filename: /etc/lab/declare-jwks.json}
+                  from_headers:
+                  - name: x-egress-identity
+                  forward: false
+                  payload_in_metadata: payload
+                  claim_to_headers:
+                  - {header_name: x-verified-vm, claim_name: sub}
+                  - {header_name: x-verified-vm-ip, claim_name: vm_ip}
+              rules:
+              - match: {prefix: "/"}
+                requires: {provider_name: egress}
+          - &same_source
+            name: envoy.filters.http.rbac
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+              rules:
+                action: ALLOW
+                policies:
+                  declared-ip-equals-source:
+                    permissions:
+                    - any: true
+                    principals:
+                    - any: true
+                    condition:
+                      call_expr:
+                        function: _==_
+                        args:
+                        - call_expr:
+                            function: _[_]
+                            args:
+                            - select_expr:
+                                operand: {ident_expr: {name: request}}
+                                field: headers
+                            - const_expr: {string_value: x-verified-source}
+                        - call_expr:
+                            function: _[_]
+                            args:
+                            - call_expr:
+                                function: _[_]
+                                args:
+                                - call_expr:
+                                    function: _[_]
+                                    args:
+                                    - select_expr:
+                                        operand: {ident_expr: {name: metadata}}
+                                        field: filter_metadata
+                                    - const_expr: {string_value: envoy.filters.http.jwt_authn}
+                                - const_expr: {string_value: payload}
+                            - const_expr: {string_value: vm_ip}
+          - &router
+            name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  # 第二个端口：同样的校验，后面是另一个服务（实验里是压测用的服务端）。受众不同，一个端口的声明拿到另一个端口用不了。
+  - name: verified_9445
+    address:
+      socket_address: {address: 0.0.0.0, port_value: 9445}
+    filter_chains:
+    - transport_socket: *egress_only_tls
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: verified_9445
+          route_config:
+            virtual_hosts:
+            - name: service_fast
+              domains: ["*"]
+              routes:
+              - match: {prefix: "/"}
+                route: {cluster: service_fast}
+          http_filters:
+          - *source_header
+          - name: envoy.filters.http.jwt_authn
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+              providers:
+                egress:
+                  issuer: egress.lab
+                  audiences: ["intranet-svc:9445"]
+                  local_jwks: {filename: /etc/lab/declare-jwks.json}
+                  from_headers:
+                  - name: x-egress-identity
+                  forward: false
+                  payload_in_metadata: payload
+                  claim_to_headers:
+                  - {header_name: x-verified-vm, claim_name: sub}
+                  - {header_name: x-verified-vm-ip, claim_name: vm_ip}
+              rules:
+              - match: {prefix: "/"}
+                requires: {provider_name: egress}
+          - *same_source
+          - *router
+
+  clusters:
+  - name: service
+    type: STATIC
+    connect_timeout: 2s
+    load_assignment:
+      cluster_name: service
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: {address: 127.0.0.1, port_value: 8082}
+  - name: service_fast
+    type: STATIC
+    connect_timeout: 2s
+    circuit_breakers:
+      thresholds:
+      - priority: DEFAULT
+        max_connections: 200000
+        max_pending_requests: 200000
+        max_requests: 200000
+    load_assignment:
+      cluster_name: service_fast
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: {address: 127.0.0.1, port_value: 8090}

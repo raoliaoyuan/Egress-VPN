@@ -9,15 +9,21 @@ table ip egress {
 	# 虚拟机不能访问服务网段（VPN 网关所在的网段）。
 	# 没有这一条，虚拟机可以让 Egress 替它连到网关的 15001 端口，并自带一个伪造的 PROXY 头，
 	# 网关信任来自 Egress 的连接，于是虚拟机就能冒充任意虚拟机。必须在劫持之前拦掉。
+	# 被阻断的虚拟机（真实 IP）。在劫持之前丢掉它发来的一切，由控制面维护，见 89-corp-exit.sh 的“逐台阻断”。
+	set blocked {
+		type ipv4_addr
+	}
+
 	chain guard {
 		type filter hook prerouting priority mangle; policy accept;
+		iifname "@VMIF@" ip saddr @blocked counter drop
 		iifname "@VMIF@" ip daddr 10.1.255.0/24 drop
 	}
 
-	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy。80、8081、8090、8443、9443 进七层监听器，其余按四层处理。
+	# 透明劫持：虚拟机发来的 TCP 全部交给本机的 Envoy。80、8081、8090、8443、9443、9444、9445 进七层监听器，其余按四层处理。
 	chain intercept {
 		type nat hook prerouting priority dstnat; policy accept;
-		iifname "@VMIF@" tcp dport { 80, 8081, 8090, 8443, 9443 } redirect to :15007
+		iifname "@VMIF@" tcp dport { 80, 8081, 8090, 8443, 9443, 9444, 9445 } redirect to :15007
 		iifname "@VMIF@" meta l4proto tcp redirect to :15006
 	}
 

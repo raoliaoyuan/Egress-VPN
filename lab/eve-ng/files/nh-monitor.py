@@ -6,6 +6,7 @@
   {"interval": 0.2, "fall": 3, "rise": 3,
    "routes": [{"prefix": "10.200.0.0/16",
                "nexthops": [{"name": "gw-1", "nexthop": "via 10.1.255.11 dev ens4", "probe": "10.1.255.11"}, …]}]}
+prefix 后面可以带路由表，例如 "default table 110"。
 每隔 interval 秒向每个下一跳的 probe 地址发一个 ICMP 请求；连续 fall 次没有应答判为不通，
 连续 rise 次有应答判为恢复（启动后第一次有应答就算通）。状态变化时用 ip route replace 重写整条路由，
 并在日志里记一行带时间的记录，故障注入时用来看多久发现的。
@@ -13,6 +14,7 @@
 数据面 B 用它在两处做同一件事：
   - Egress 上，去内网的路由在各台网关之间分摊；
   - VPN 服务器上，回程去各地址块的路由在各台网关的隧道之间分摊。
+“多台 Egress 之间做等价多路径”的实验（84-egress-ecmp.sh）也用它：接入路由器上，虚拟机的默认路由在各台 Egress 之间分摊。
 它是让数据面 B 在实验里成立的最小做法。完整的做法是隧道里跑 BGP 加 BFD，由路由协议撤销不通的下一跳。
 探测的地址由配置给：VPN 服务器探测的是网关在隧道里的地址；Egress 探测的是网关的“就绪地址”，
 网关只在自己的隧道通、转发已打开时才配上它（见 gateway-b-health.sh），所以网关刚开机还没就绪、
@@ -62,11 +64,11 @@ HOPS = {h.probe: h for _, hops in ROUTES for h in hops}
 def apply(prefix, hops):
     alive = [h for h in hops if h.up]
     if not alive:
-        subprocess.run(["ip", "route", "del", prefix], stderr=subprocess.DEVNULL)
+        subprocess.run(["ip", "route", "del"] + prefix.split(), stderr=subprocess.DEVNULL)
     elif len(alive) == 1:
-        subprocess.run(["ip", "route", "replace", prefix] + alive[0].nexthop.split())
+        subprocess.run(["ip", "route", "replace"] + prefix.split() + alive[0].nexthop.split())
     else:
-        cmd = ["ip", "route", "replace", prefix]
+        cmd = ["ip", "route", "replace"] + prefix.split()
         for h in alive:
             cmd += ["nexthop"] + h.nexthop.split() + ["weight", "1"]
         subprocess.run(cmd)

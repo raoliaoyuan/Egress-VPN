@@ -13,6 +13,7 @@ set -euo pipefail
 . "$(dirname "$0")/scale-lib.sh"
 GW_ADVERT=${GW_ADVERT:-1}   # 网关单元的 VRRP 通告间隔（秒）。热备在连续约 3 个间隔收不到通告后接管
 
+[ -f "$STATE/ms-on" ] && die "现在是多台 VPN 服务器的形态；要回到这个形态，先执行 30-deploy-solution.sh"
 say "准备：三台虚拟机都走新方案"
 [ -f "$STATE/gateway-on" ] || die "还没有部署新方案，先执行 30-deploy-solution.sh"
 for vm in $(cat "$STATE/legacy"); do "$(dirname "$0")/40-migrate.sh" "$vm" >/dev/null; echo "已迁移 $vm"; done

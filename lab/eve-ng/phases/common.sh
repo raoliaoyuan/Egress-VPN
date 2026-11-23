@@ -23,7 +23,9 @@ FARM_PER_BLOCK=50000          # 每个模拟的块登记多少个身份（地址
 #   scale-on：数据面 A 的规模化形态（两个网关单元加共享热备 gw-3），由 80-scale-a.sh 建立；
 #   b-on：    块 3 走数据面 B（地址转换在 Egress 上，网关只转发），由 85-dataplane-b.sh 建立。
 # 20-baseline.sh 和 30-deploy-solution.sh 会清掉这两个标记，回到只有一个单元、gw-1 主用 gw-2 备用的基础形态。
+#   ms-on：   多台 VPN 服务器同时工作（每条邻接一个隧道接口，BGP 加 BFD），由 87-multi-server.sh 建立，叠在 scale-on 之上。
 scale_on() { [ -f "$STATE/scale-on" ]; }
+ms_on() { [ -f "$STATE/ms-on" ]; }
 b_on() { [ -f "$STATE/b-on" ]; }
 gateways() { if scale_on; then echo gw-1 gw-2 gw-3; else echo gw-1 gw-2; fi; }
 SHARED_USER=svc-batch         # 内网服务上所有虚拟机共用的那个账号（静态凭证）
@@ -90,17 +92,19 @@ finish() {
 # state/legacy 里列着还在用旧方式（自带隧道）的虚拟机；state/gateway-on 存在时加入网关 peer。
 # 网关 peer 取自仓库的 config/vpn-server/gateway-peer.conf，只把公钥占位符换成实验里的公钥。
 render_server_conf() {
+	# 多台服务器的形态下，wg0 只留给旧方式的虚拟机：地址写成 /32，不让整个地址块的路由落在 wg0 上
+	# （那样会盖住从各台网关的 BGP 通告学来的路由），也不在 wg0 上放网关的对端。
 	cat <<CONF
 [Interface]
 PrivateKey = $(wgkey server)
-Address = 100.64.3.254/22
+Address = 100.64.3.254/$(ms_on && echo 32 || echo 22)
 ListenPort = 51820
 CONF
 	local vm
 	for vm in $(cat "$STATE/legacy" 2>/dev/null); do
 		printf '\n[Peer]\n# %s（旧方式：虚拟机自带隧道）\nPublicKey = %s\nAllowedIPs = %s/32\n' "$vm" "$(wgpub "$vm")" "${INTRA_IP[$vm]}"
 	done
-	if [ -f "$STATE/gateway-on" ]; then
+	if [ -f "$STATE/gateway-on" ] && ! ms_on; then
 		echo
 		if scale_on; then
 			# 多单元：单元 1 承载块 1、块 2；单元 2 承载块 3（块 3 改走数据面 B 之后，它不再属于任何单元）。
@@ -118,6 +122,20 @@ apply_server_conf() {
 	rm -f "$STATE/wg0.tmp"
 	# wg syncconf 只更新 peer，不动路由。块 2、块 3 不在 wg0 自己的网段里，它们指向 wg0 的路由要另外维护：
 	# 该走 wg0 的补上，不该走的删掉（块 3 走数据面 B 时，它的路由由 nh-monitor 维护，这里不碰）。
+	if ms_on; then
+		# wg syncconf 不动路由：旧方式的虚拟机各自的 /32 路由在这里补上，已经迁移走的删掉。
+		# 这些 /32 由 FRR 通告给内网核心，比网关通告的地址块更具体，回程仍然到这台服务器。
+		local legacy_ips="" vm
+		for vm in $(cat "$STATE/legacy" 2>/dev/null); do legacy_ips="$legacy_ips ${INTRA_IP[$vm]}"; done
+		on vpn-server "chmod 600 /etc/wireguard/wg0.conf
+if ip link show wg0 >/dev/null 2>&1; then wg syncconf wg0 <(wg-quick strip wg0); else systemctl enable -q --now wg-quick@wg0; fi
+for r in \$(ip -4 route show dev wg0 | awk '\$1 ~ /^100\\.64\\./ {print \$1}'); do
+	case ' $legacy_ips ' in *\" \$r \"*) ;; *) ip route del \$r dev wg0 ;; esac
+done
+for a in $legacy_ips; do ip route replace \$a/32 dev wg0; done
+wg show wg0 allowed-ips | awk '{printf \"  peer %s…\", substr(\$1,1,8); for (i = 2; i <= NF; i++) printf \" %s\", \$i; print \"\"}'"
+		return
+	fi
 	local want=""
 	scale_on && [ -f "$STATE/gateway-on" ] && want="$BLOCK2_INTRA"
 	scale_on && [ -f "$STATE/gateway-on" ] && ! b_on && want="$want $BLOCK3_INTRA"
